@@ -24,11 +24,21 @@ class AgentConfig(BaseModel):
     tool_groups: list[str] | None = None
 
 
-def load_agent_config(name: str | None) -> AgentConfig | None:
+def _is_user_scoped(user_id: str | None) -> bool:
+    """Return True when the request should use the user-scoped agents directory.
+
+    user_id=None or user_id="default" maps to the global agents directory
+    (backward-compatible path for AUTH_ENABLED=false deployments).
+    """
+    return bool(user_id) and user_id != "default"
+
+
+def load_agent_config(name: str | None, user_id: str | None = None) -> AgentConfig | None:
     """Load the custom or default agent's config from its directory.
 
     Args:
         name: The agent name.
+        user_id: When provided and not "default", load from the user's private agents dir.
 
     Returns:
         AgentConfig instance.
@@ -37,13 +47,17 @@ def load_agent_config(name: str | None) -> AgentConfig | None:
         FileNotFoundError: If the agent directory or config.yaml does not exist.
         ValueError: If config.yaml cannot be parsed.
     """
-
     if name is None:
         return None
 
     if not AGENT_NAME_PATTERN.match(name):
         raise ValueError(f"Invalid agent name '{name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
-    agent_dir = get_paths().agent_dir(name)
+
+    if _is_user_scoped(user_id):
+        agent_dir = get_paths().user_agent_dir(user_id, name)
+    else:
+        agent_dir = get_paths().agent_dir(name)
+
     config_file = agent_dir / "config.yaml"
 
     if not agent_dir.exists():
@@ -69,7 +83,7 @@ def load_agent_config(name: str | None) -> AgentConfig | None:
     return AgentConfig(**data)
 
 
-def load_agent_soul(agent_name: str | None) -> str | None:
+def load_agent_soul(agent_name: str | None, user_id: str | None = None) -> str | None:
     """Read the SOUL.md file for a custom agent, if it exists.
 
     SOUL.md defines the agent's personality, values, and behavioral guardrails.
@@ -77,11 +91,18 @@ def load_agent_soul(agent_name: str | None) -> str | None:
 
     Args:
         agent_name: The name of the agent or None for the default agent.
+        user_id: When provided and not "default", look in the user's private agents dir.
 
     Returns:
         The SOUL.md content as a string, or None if the file does not exist.
     """
-    agent_dir = get_paths().agent_dir(agent_name) if agent_name else get_paths().base_dir
+    if agent_name and _is_user_scoped(user_id):
+        agent_dir = get_paths().user_agent_dir(user_id, agent_name)
+    elif agent_name:
+        agent_dir = get_paths().agent_dir(agent_name)
+    else:
+        agent_dir = get_paths().base_dir
+
     soul_path = agent_dir / SOUL_FILENAME
     if not soul_path.exists():
         return None
@@ -89,13 +110,19 @@ def load_agent_soul(agent_name: str | None) -> str | None:
     return content or None
 
 
-def list_custom_agents() -> list[AgentConfig]:
+def list_custom_agents(user_id: str | None = None) -> list[AgentConfig]:
     """Scan the agents directory and return all valid custom agents.
+
+    Args:
+        user_id: When provided and not "default", scan the user's private agents dir.
 
     Returns:
         List of AgentConfig for each valid agent directory found.
     """
-    agents_dir = get_paths().agents_dir
+    if _is_user_scoped(user_id):
+        agents_dir = get_paths().user_agents_dir(user_id)
+    else:
+        agents_dir = get_paths().agents_dir
 
     if not agents_dir.exists():
         return []
@@ -112,7 +139,7 @@ def list_custom_agents() -> list[AgentConfig]:
             continue
 
         try:
-            agent_cfg = load_agent_config(entry.name)
+            agent_cfg = load_agent_config(entry.name, user_id=user_id)
             agents.append(agent_cfg)
         except Exception as e:
             logger.warning(f"Skipping agent '{entry.name}': {e}")

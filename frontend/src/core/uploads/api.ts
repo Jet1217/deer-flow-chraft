@@ -2,6 +2,7 @@
  * API functions for file uploads
  */
 
+import { getAuthHeaders } from "../api/token";
 import { getBackendBaseURL } from "../config";
 
 export interface UploadedFileInfo {
@@ -46,6 +47,7 @@ export async function uploadFiles(
     `${getBackendBaseURL()}/api/threads/${threadId}/uploads`,
     {
       method: "POST",
+      headers: getAuthHeaders(),
       body: formData,
     },
   );
@@ -68,6 +70,7 @@ export async function listUploadedFiles(
 ): Promise<ListFilesResponse> {
   const response = await fetch(
     `${getBackendBaseURL()}/api/threads/${threadId}/uploads/list`,
+    { headers: getAuthHeaders() },
   );
 
   if (!response.ok) {
@@ -88,6 +91,7 @@ export async function deleteUploadedFile(
     `${getBackendBaseURL()}/api/threads/${threadId}/uploads/${filename}`,
     {
       method: "DELETE",
+      headers: getAuthHeaders(),
     },
   );
 

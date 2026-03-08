@@ -47,13 +47,13 @@ export const enUS: Translations = {
 
   // Welcome
   welcome: {
-    greeting: "Hello, again!",
+    greeting: "Hello, what's on your mind?",
     description:
-      "Welcome to 🦌 DeerFlow, an open source super agent. With built-in and custom skills, DeerFlow helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
+      "Chraft is your AI agent for research, code, and creation. Ask anything — it searches the web, runs code, and builds what you need.",
 
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
-      "Create your own skill to release the power of DeerFlow. With customized skills,\nDeerFlow can help you search on the web, analyze data, and generate\n artifacts like slides, web pages and do almost anything.",
+      "Create your own skill to extend the power of Chraft. With customized skills,\nChraft can help you search on the web, analyze data, and generate\n artifacts like slides, web pages and do almost anything.",
   },
 
   // Clipboard
@@ -196,13 +196,13 @@ export const enUS: Translations = {
 
   // Workspace
   workspace: {
-    officialWebsite: "DeerFlow's official website",
-    githubTooltip: "DeerFlow on Github",
-    settingsAndMore: "Settings and more",
-    visitGithub: "DeerFlow on GitHub",
+    officialWebsite: "Chraft's official website",
+    githubTooltip: "Chraft on Github",
+    settingsAndMore: "Settings",
+    visitGithub: "Chraft on GitHub",
     reportIssue: "Report a issue",
-    contactUs: "Contact us",
-    about: "About DeerFlow",
+    contactUs: "Feedback",
+    about: "About Chraft",
   },
 
   // Conversation
@@ -218,7 +218,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "DeerFlow",
+    appName: "Chraft",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",
@@ -244,7 +244,7 @@ export const enUS: Translations = {
     writeFile: "Write file",
     clickToViewContent: "Click to view file content",
     writeTodos: "Update to-do list",
-    skillInstallTooltip: "Install skill and make it available to DeerFlow",
+    skillInstallTooltip: "Install skill and make it available to Chraft",
   },
 
   // Subtasks
@@ -260,19 +260,25 @@ export const enUS: Translations = {
   // Settings
   settings: {
     title: "Settings",
-    description: "Adjust how DeerFlow looks and behaves for you.",
+    description: "Adjust how Chraft looks and behaves for you.",
     sections: {
       appearance: "Appearance",
       memory: "Memory",
       tools: "Tools",
       skills: "Skills",
+      agents: "Agents",
       notification: "Notification",
       about: "About",
+    },
+    agents: {
+      title: "Agents",
+      description:
+        "View and manage your custom agents. Start a new chat or delete agents you no longer need.",
     },
     memory: {
       title: "Memory",
       description:
-        "DeerFlow automatically learns from your conversations in the background. These memories help DeerFlow understand you better and deliver a more personalized experience.",
+        "Chraft automatically learns from your conversations in the background. These memories help Chraft understand you better and deliver a more personalized experience.",
       empty: "No memory data to display.",
       rawJson: "Raw JSON",
       markdown: {
@@ -328,18 +334,18 @@ export const enUS: Translations = {
       createSkill: "Create skill",
       emptyTitle: "No agent skill yet",
       emptyDescription:
-        "Put your agent skill folders under the `/skills/custom` folder under the root folder of DeerFlow.",
+        "Put your agent skill folders under the `/skills/custom` folder under the root folder of Chraft.",
       emptyButton: "Create Your First Skill",
     },
     notification: {
       title: "Notification",
       description:
-        "DeerFlow only sends a completion notification when the window is not active. This is especially useful for long-running tasks so you can switch to other work and get notified when done.",
+        "Chraft only sends a completion notification when the window is not active. This is especially useful for long-running tasks so you can switch to other work and get notified when done.",
       requestPermission: "Request notification permission",
       deniedHint:
         "Notification permission was denied. You can enable it in your browser's site settings to receive completion alerts.",
       testButton: "Send test notification",
-      testTitle: "DeerFlow",
+      testTitle: "Chraft",
       testBody: "This is a test notification.",
       notSupported: "Your browser does not support notifications.",
       disableNotification: "Disable notification",

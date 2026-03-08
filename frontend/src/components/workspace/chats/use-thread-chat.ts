@@ -3,27 +3,31 @@
 import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { uuid } from "@/core/utils/uuid";
-
 export function useThreadChat() {
   const { thread_id: threadIdFromPath } = useParams<{ thread_id: string }>();
   const pathname = usePathname();
-
   const searchParams = useSearchParams();
-  const [threadId, setThreadId] = useState(() => {
-    return threadIdFromPath === "new" ? uuid() : threadIdFromPath;
+
+  const initialQuery = threadIdFromPath === "new"
+    ? (searchParams.get("q") ?? undefined)
+    : undefined;
+
+  const [threadId, setThreadId] = useState<string | undefined>(() => {
+    return threadIdFromPath === "new" ? undefined : threadIdFromPath;
   });
 
+  // If there's an initial query, skip the welcome state and go straight into chat.
   const [isNewThread, setIsNewThread] = useState(
-    () => threadIdFromPath === "new",
+    () => threadIdFromPath === "new" && !initialQuery,
   );
 
   useEffect(() => {
-    if (pathname.endsWith("/new")) {
-      setIsNewThread(true);
-      setThreadId(uuid());
-    }
-  }, [pathname]);
+    const routeIsNewThread = pathname.endsWith("/new");
+    setIsNewThread(routeIsNewThread && !initialQuery);
+    setThreadId(routeIsNewThread ? undefined : threadIdFromPath);
+  }, [initialQuery, pathname, threadIdFromPath]);
+
   const isMock = searchParams.get("mock") === "true";
-  return { threadId, isNewThread, setIsNewThread, isMock };
+
+  return { threadId, setThreadId, isNewThread, setIsNewThread, isMock, initialQuery };
 }

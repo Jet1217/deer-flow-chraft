@@ -1,0 +1,175 @@
+# DeerFlow Production Multi-Instance Environment
+#
+# Usage:
+#   cp .env.example .env       # fill in all required vars
+#   docker-compose -f docker/docker-compose-prod.yaml up -d
+#
+# Access: http://localhost:2026  (or behind your load balancer)
+#
+# Required environment variables (set in project root .env or shell):
+#   POSTGRES_USER, POSTGRES_PASSWORD  — PostgreSQL credentials
+#   JWT_SECRET_KEY                    — HS256 signing key shared with your auth service
+#   SECRETS_MASTER_KEY                — 32-byte Fernet key for user secrets encryption
+#   OPENAI_API_KEY / ANTHROPIC_API_KEY / etc. — Platform default LLM keys
+#
+# Optional:
+#   POSTGRES_DB          (default: deerflow)
+#   REDIS_URI            (default: redis://redis:6379)
+#   RATE_LIMIT_REQUESTS  (default: 100)
+#   RATE_LIMIT_WINDOW    (default: 60)
+#   DEER_FLOW_DATA_PATH  — Host path for the shared data volume (default: /data/deer-flow)
+
+services:
+  # ── Infrastructure ──────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: deer-flow-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-deerflow}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - deer-flow-prod
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-deerflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: deer-flow-redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - deer-flow-prod
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Application services ─────────────────────────────────────────────────
+
+  gateway:
+    image: deer-flow-backend:latest
+    command: uv run uvicorn src.gateway.app:app --host 0.0.0.0 --port 8001
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - deer_flow_data:/app/.deer-flow
+      - ../config.yaml:/app/config.yaml:ro
+    working_dir: /app/backend
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-deerflow}
+      REDIS_URI: redis://redis:6379
+      AUTH_ENABLED: "true"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_USER_ID_CLAIM: ${JWT_USER_ID_CLAIM:-sub}
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-60}
+    env_file:
+      - ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - deer-flow-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  langgraph:
+    image: deer-flow-backend:latest
+    command: uv run langgraph up --no-browser --host 0.0.0.0 --port 2024
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - deer_flow_data:/app/.deer-flow
+      - ../config.yaml:/app/config.yaml:ro
+    working_dir: /app/backend
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-deerflow}
+      AUTH_ENABLED: "true"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_USER_ID_CLAIM: ${JWT_USER_ID_CLAIM:-sub}
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
+    env_file:
+      - ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - deer-flow-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2024/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    image: deer-flow-frontend:latest
+    deploy:
+      replicas: 1
+    networks:
+      - deer-flow-prod
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: deer-flow-nginx
+    ports:
+      - "2026:2026"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - gateway
+      - langgraph
+      - frontend
+    networks:
+      - deer-flow-prod
+    restart: unless-stopped
+
+# ── Volumes ───────────────────────────────────────────────────────────────
+# In production, replace the local bind mount with a network storage volume
+# (NFS, AWS EFS, or equivalent) that supports ReadWriteMany across nodes.
+#
+# Example for NFS:
+#   deer_flow_data:
+#     driver: local
+#     driver_opts:
+#       type: nfs
+#       o: "addr=<NFS_SERVER>,rw,nfsvers=4"
+#       device: ":/exports/deer-flow"
+
+volumes:
+  postgres_data:
+  redis_data:
+  deer_flow_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DEER_FLOW_DATA_PATH:-/data/deer-flow}
+
+networks:
+  deer-flow-prod:
+    driver: bridge

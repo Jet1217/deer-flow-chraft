@@ -204,17 +204,18 @@ Being proactive with task management demonstrates thoroughness and ensures all r
 # MemoryMiddleware queues conversation for memory update (after TitleMiddleware)
 # ViewImageMiddleware should be before ClarificationMiddleware to inject image details before LLM
 # ClarificationMiddleware should be last to intercept clarification requests after model calls
-def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_name: str | None = None):
+def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_name: str | None = None, user_id: str | None = None):
     """Build middleware chain based on runtime configuration.
 
     Args:
         config: Runtime configuration containing configurable options like is_plan_mode.
         agent_name: If provided, MemoryMiddleware will use per-agent memory storage.
+        user_id: Authenticated user ID for multi-tenant memory isolation.
 
     Returns:
         List of middleware instances.
     """
-    middlewares = [ThreadDataMiddleware(), UploadsMiddleware(), SandboxMiddleware(), DanglingToolCallMiddleware()]
+    middlewares = [ThreadDataMiddleware(), UploadsMiddleware(), SandboxMiddleware(user_id=user_id), DanglingToolCallMiddleware()]
 
     # Add summarization middleware if enabled
     summarization_middleware = _create_summarization_middleware()
@@ -231,7 +232,7 @@ def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_nam
     middlewares.append(TitleMiddleware())
 
     # Add MemoryMiddleware (after TitleMiddleware)
-    middlewares.append(MemoryMiddleware(agent_name=agent_name))
+    middlewares.append(MemoryMiddleware(agent_name=agent_name, user_id=user_id))
 
     # Add ViewImageMiddleware only if the current model supports vision.
     # Use the resolved runtime model_name from make_lead_agent to avoid stale config values.
@@ -265,7 +266,20 @@ def make_lead_agent(config: RunnableConfig):
     is_bootstrap = config.get("configurable", {}).get("is_bootstrap", False)
     agent_name = config.get("configurable", {}).get("agent_name")
 
-    agent_config = load_agent_config(agent_name) if not is_bootstrap else None
+    # Extract authenticated user_id from LangGraph auth (multiple possible keys for compatibility)
+    cfg = config.get("configurable", {})
+    meta = config.get("metadata", {})
+    _auth_user = cfg.get("langgraph_auth_user") or config.get("configuration", {}).get("langgraph_auth_user")
+    _auth_id = (
+        meta.get("owner")
+        or cfg.get("user_id")
+        or cfg.get("langgraph_auth_user_id")
+        or (getattr(_auth_user, "identity", None) if _auth_user is not None else None)
+        or (isinstance(_auth_user, dict) and _auth_user.get("identity"))
+    )
+    user_id: str | None = _auth_id if isinstance(_auth_id, str) and _auth_id.strip() else None
+
+    agent_config = load_agent_config(agent_name, user_id=user_id) if not is_bootstrap else None
     # Custom agent model or fallback to global/default model resolution
     agent_model_name = agent_config.model if agent_config and agent_config.model else _resolve_model_name()
 
@@ -313,8 +327,8 @@ def make_lead_agent(config: RunnableConfig):
 
         return create_agent(
             model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled),
-            tools=get_available_tools(model_name=model_name, subagent_enabled=subagent_enabled) + [setup_agent],
-            middleware=_build_middlewares(config, model_name=model_name),
+            tools=get_available_tools(model_name=model_name, subagent_enabled=subagent_enabled, user_id=user_id) + [setup_agent],
+            middleware=_build_middlewares(config, model_name=model_name, user_id=user_id),
             system_prompt=system_prompt,
             state_schema=ThreadState,
         )
@@ -322,8 +336,8 @@ def make_lead_agent(config: RunnableConfig):
     # Default lead agent (unchanged behavior)
     return create_agent(
         model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort),
-        tools=get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled),
-        middleware=_build_middlewares(config, model_name=model_name, agent_name=agent_name),
+        tools=get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, user_id=user_id) + [setup_agent],
+        middleware=_build_middlewares(config, model_name=model_name, agent_name=agent_name, user_id=user_id),
         system_prompt=apply_prompt_template(subagent_enabled=subagent_enabled, max_concurrent_subagents=max_concurrent_subagents, agent_name=agent_name),
         state_schema=ThreadState,
     )

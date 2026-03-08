@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -7,7 +8,7 @@ from fastapi import FastAPI
 
 from src.config.app_config import get_app_config
 from src.gateway.config import get_gateway_config
-from src.gateway.routers import agents, artifacts, mcp, memory, models, skills, uploads
+from src.gateway.routers import agents, artifacts, auth, mcp, memory, models, secrets, skills, uploads
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +33,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         sys.exit(1)
     config = get_gateway_config()
     logger.info(f"Starting API Gateway on {config.host}:{config.port}")
+
+    # Initialize PostgreSQL schema if POSTGRES_URI is configured
+    from src.agents.memory.db import ensure_schema
+    ensure_schema()
 
     # NOTE: MCP tools initialization is NOT done here because:
     # 1. Gateway doesn't use MCP tools - they are used by Agents in the LangGraph Server
@@ -105,6 +110,10 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
                 "description": "Create and manage custom agents with per-agent config and prompts",
             },
             {
+                "name": "secrets",
+                "description": "Manage per-user encrypted API keys",
+            },
+            {
                 "name": "health",
                 "description": "Health check and system status endpoints",
             },
@@ -113,7 +122,15 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
 
     # CORS is handled by nginx - no need for FastAPI middleware
 
+    # Register Auth middleware when AUTH_ENABLED=true
+    if os.environ.get("AUTH_ENABLED", "false").lower() == "true":
+        from src.auth.gateway_middleware import AuthMiddleware
+        app.add_middleware(AuthMiddleware)
+        logger.info("AuthMiddleware registered (AUTH_ENABLED=true)")
+
     # Include routers
+    # Auth API at /api/auth (me = current user + is_user_scoped)
+    app.include_router(auth.router)
     # Models API is mounted at /api/models
     app.include_router(models.router)
 
@@ -134,6 +151,9 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
 
     # Agents API is mounted at /api/agents
     app.include_router(agents.router)
+
+    # Secrets API is mounted at /api/secrets
+    app.include_router(secrets.router)
 
     @app.get("/health", tags=["health"])
     async def health_check() -> dict:

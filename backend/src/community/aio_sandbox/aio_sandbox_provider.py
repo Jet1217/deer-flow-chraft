@@ -298,7 +298,7 @@ class AioSandboxProvider(SandboxProvider):
 
     # ── Core: acquire / get / release / shutdown ─────────────────────────
 
-    def acquire(self, thread_id: str | None = None) -> str:
+    def acquire(self, thread_id: str | None = None, user_id: str | None = None, extra_env: dict[str, str] | None = None) -> str:
         """Acquire a sandbox environment and return its ID.
 
         For the same thread_id, this method will return the same sandbox_id
@@ -309,6 +309,8 @@ class AioSandboxProvider(SandboxProvider):
 
         Args:
             thread_id: Optional thread ID for thread-specific configurations.
+            user_id: Authenticated user ID (unused in Docker sandbox, kept for interface compat).
+            extra_env: Additional env vars (unused here, kept for interface compat).
 
         Returns:
             The ID of the acquired sandbox environment.

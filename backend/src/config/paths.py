@@ -6,6 +6,7 @@ from pathlib import Path
 VIRTUAL_PATH_PREFIX = "/mnt/user-data"
 
 _SAFE_THREAD_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+_SAFE_USER_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
 
 
 class Paths:
@@ -128,6 +129,66 @@ class Paths:
         self.sandbox_work_dir(thread_id).mkdir(parents=True, exist_ok=True)
         self.sandbox_uploads_dir(thread_id).mkdir(parents=True, exist_ok=True)
         self.sandbox_outputs_dir(thread_id).mkdir(parents=True, exist_ok=True)
+
+    # ── User namespace (multi-tenant) ────────────────────────────────────
+
+    def _validate_user_id(self, user_id: str) -> str:
+        if not _SAFE_USER_ID_RE.match(user_id):
+            raise ValueError(f"Invalid user_id {user_id!r}: only alphanumeric, hyphens, and underscores (max 128 chars) are allowed.")
+        return user_id
+
+    def user_root(self, user_id: str) -> Path:
+        """Root directory for a user's data: ``{base_dir}/users/{user_id}/``."""
+        return self.base_dir / "users" / self._validate_user_id(user_id)
+
+    def user_md_file_path(self, user_id: str) -> Path:
+        """Per-user profile file: ``{base_dir}/users/{user_id}/USER.md``."""
+        return self.user_root(user_id) / "USER.md"
+
+    def user_agents_dir(self, user_id: str) -> Path:
+        """Root directory for a user's custom agents: ``{base_dir}/users/{user_id}/agents/``."""
+        return self.user_root(user_id) / "agents"
+
+    def user_agent_dir(self, user_id: str, name: str) -> Path:
+        """Directory for a specific user agent: ``{base_dir}/users/{user_id}/agents/{name}/``."""
+        return self.user_agents_dir(user_id) / name.lower()
+
+    def user_memory_file(self, user_id: str) -> Path:
+        """Per-user memory file: ``{base_dir}/users/{user_id}/memory.json``."""
+        return self.user_root(user_id) / "memory.json"
+
+    def user_skills_dir(self, user_id: str) -> Path:
+        """User private skills directory: ``{base_dir}/users/{user_id}/skills/custom/``."""
+        return self.user_root(user_id) / "skills" / "custom"
+
+    def user_extensions_config_file(self, user_id: str) -> Path:
+        """Per-user extensions/MCP config: ``{base_dir}/users/{user_id}/extensions_config.json``."""
+        return self.user_root(user_id) / "extensions_config.json"
+
+    def user_secrets_file(self, user_id: str) -> Path:
+        """Encrypted API keys file: ``{base_dir}/users/{user_id}/secrets.enc``."""
+        return self.user_root(user_id) / "secrets.enc"
+
+    # ── Thread ownership helpers ─────────────────────────────────────────
+
+    def thread_owner_file(self, thread_id: str) -> Path:
+        """Legacy per-thread owner file (fallback when PostgreSQL is unavailable)."""
+        return self.thread_dir(thread_id) / ".owner"
+
+    def write_thread_owner(self, thread_id: str, user_id: str) -> None:
+        """Write thread owner file atomically (used only when DB is unavailable)."""
+        owner_file = self.thread_owner_file(thread_id)
+        owner_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = owner_file.with_suffix(".tmp")
+        tmp.write_text(user_id, encoding="utf-8")
+        tmp.replace(owner_file)
+
+    def read_thread_owner(self, thread_id: str) -> str | None:
+        """Read thread owner from file (returns None if not set)."""
+        owner_file = self.thread_owner_file(thread_id)
+        if not owner_file.exists():
+            return None
+        return owner_file.read_text(encoding="utf-8").strip() or None
 
     def resolve_virtual_path(self, thread_id: str, virtual_path: str) -> Path:
         """Resolve a sandbox virtual path to the actual host filesystem path.

@@ -2,26 +2,22 @@ from src.sandbox.local.local_sandbox import LocalSandbox
 from src.sandbox.sandbox import Sandbox
 from src.sandbox.sandbox_provider import SandboxProvider
 
-_singleton: LocalSandbox | None = None
+# One sandbox instance per user (or "local" for the global/unauthenticated case).
+# Key: sandbox_id string ("local" or "local:<user_id>")
+_sandboxes: dict[str, LocalSandbox] = {}
 
 
 class LocalSandboxProvider(SandboxProvider):
     def __init__(self):
-        """Initialize the local sandbox provider with path mappings."""
-        self._path_mappings = self._setup_path_mappings()
+        """Initialize the local sandbox provider."""
+        self._global_path_mappings = self._build_global_path_mappings()
 
-    def _setup_path_mappings(self) -> dict[str, str]:
+    def _build_global_path_mappings(self) -> dict[str, str]:
+        """Build path mappings for the global (non-user-scoped) sandbox.
+
+        Maps /mnt/skills → project skills directory.
         """
-        Setup path mappings for local sandbox.
-
-        Maps container paths to actual local paths, including skills directory.
-
-        Returns:
-            Dictionary of path mappings
-        """
-        mappings = {}
-
-        # Map skills container path to local skills directory
+        mappings: dict[str, str] = {}
         try:
             from src.config import get_app_config
 
@@ -29,32 +25,61 @@ class LocalSandboxProvider(SandboxProvider):
             skills_path = config.skills.get_skills_path()
             container_path = config.skills.container_path
 
-            # Only add mapping if skills directory exists
             if skills_path.exists():
                 mappings[container_path] = str(skills_path)
         except Exception as e:
-            # Log but don't fail if config loading fails
             print(f"Warning: Could not setup skills path mapping: {e}")
 
         return mappings
 
-    def acquire(self, thread_id: str | None = None) -> str:
-        global _singleton
-        if _singleton is None:
-            _singleton = LocalSandbox("local", path_mappings=self._path_mappings)
-        return _singleton.id
+    def _build_user_path_mappings(self, user_id: str) -> dict[str, str]:
+        """Build path mappings for a specific authenticated user.
+
+        Inherits the global mappings but overrides /mnt/skills/custom with the
+        user's private skills directory so the agent only sees its own installed
+        custom skills. Public skills remain globally shared.
+        """
+        from src.config.agents_config import _is_user_scoped
+        from src.config.paths import get_paths
+
+        mappings = dict(self._global_path_mappings)
+
+        if _is_user_scoped(user_id):
+            try:
+                from src.config import get_app_config
+
+                container_base = get_app_config().skills.container_path  # e.g. /mnt/skills
+                user_custom_dir = get_paths().user_skills_dir(user_id)
+                user_custom_dir.mkdir(parents=True, exist_ok=True)
+                # Override /mnt/skills/custom → user's private skills dir
+                mappings[f"{container_base}/custom"] = str(user_custom_dir)
+            except Exception as e:
+                print(f"Warning: Could not setup user skills path mapping for {user_id}: {e}")
+
+        return mappings
+
+    def acquire(self, thread_id: str | None = None, user_id: str | None = None, extra_env: dict[str, str] | None = None) -> str:
+        from src.config.agents_config import _is_user_scoped
+
+        is_scoped = _is_user_scoped(user_id)
+        sandbox_id = f"local:{user_id}" if is_scoped else "local"
+
+        if sandbox_id not in _sandboxes:
+            path_mappings = self._build_user_path_mappings(user_id) if is_scoped else self._global_path_mappings
+            _sandboxes[sandbox_id] = LocalSandbox(sandbox_id, path_mappings=path_mappings)
+
+        return sandbox_id
 
     def get(self, sandbox_id: str) -> Sandbox | None:
-        if sandbox_id == "local":
-            if _singleton is None:
-                self.acquire()
-            return _singleton
+        if sandbox_id in _sandboxes:
+            return _sandboxes[sandbox_id]
+        # Legacy fallback: callers that already have "local" as sandbox_id
+        if sandbox_id == "local" and "local" not in _sandboxes:
+            self.acquire()
+            return _sandboxes.get("local")
         return None
 
     def release(self, sandbox_id: str) -> None:
-        # LocalSandbox uses singleton pattern - no cleanup needed.
-        # Note: This method is intentionally not called by SandboxMiddleware
-        # to allow sandbox reuse across multiple turns in a thread.
-        # For Docker-based providers (e.g., AioSandboxProvider), cleanup
-        # happens at application shutdown via the shutdown() method.
+        # LocalSandbox uses per-user singletons - no cleanup needed on release.
+        # Cleanup happens at application shutdown via shutdown() if implemented.
         pass

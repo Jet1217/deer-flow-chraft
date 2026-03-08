@@ -6,5 +6,12 @@
   "env": ".env",
   "graphs": {
     "lead_agent": "src.agents:make_lead_agent"
+  },
+  "auth": {
+    "path": "src.auth.langgraph_handler:auth"
+  },
+  "store": {
+    "uri": "${POSTGRES_URI}",
+    "table_prefix": "langgraph_"
   }
 }

@@ -7,10 +7,12 @@ import zipfile
 from pathlib import Path
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from src.auth import get_current_user_id
 from src.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
+from src.config.paths import get_paths
 from src.gateway.path_utils import resolve_thread_virtual_path
 from src.skills import Skill, load_skills
 from src.skills.loader import get_skills_root_path
@@ -150,39 +152,10 @@ def _skill_to_response(skill: Skill) -> SkillResponse:
     summary="List All Skills",
     description="Retrieve a list of all available skills from both public and custom directories.",
 )
-async def list_skills() -> SkillsListResponse:
-    """List all available skills.
-
-    Returns all skills regardless of their enabled status.
-
-    Returns:
-        A list of all skills with their metadata.
-
-    Example Response:
-        ```json
-        {
-            "skills": [
-                {
-                    "name": "PDF Processing",
-                    "description": "Extract and analyze PDF content",
-                    "license": "MIT",
-                    "category": "public",
-                    "enabled": true
-                },
-                {
-                    "name": "Frontend Design",
-                    "description": "Generate frontend designs and components",
-                    "license": null,
-                    "category": "custom",
-                    "enabled": false
-                }
-            ]
-        }
-        ```
-    """
+async def list_skills(user_id: str = Depends(get_current_user_id)) -> SkillsListResponse:
+    """List all available skills (global + user-private)."""
     try:
-        # Load all skills (including disabled ones)
-        skills = load_skills(enabled_only=False)
+        skills = load_skills(enabled_only=False, user_id=user_id)
         return SkillsListResponse(skills=[_skill_to_response(skill) for skill in skills])
     except Exception as e:
         logger.error(f"Failed to load skills: {e}", exc_info=True)
@@ -195,31 +168,10 @@ async def list_skills() -> SkillsListResponse:
     summary="Get Skill Details",
     description="Retrieve detailed information about a specific skill by its name.",
 )
-async def get_skill(skill_name: str) -> SkillResponse:
-    """Get a specific skill by name.
-
-    Args:
-        skill_name: The name of the skill to retrieve.
-
-    Returns:
-        Skill information if found.
-
-    Raises:
-        HTTPException: 404 if skill not found.
-
-    Example Response:
-        ```json
-        {
-            "name": "PDF Processing",
-            "description": "Extract and analyze PDF content",
-            "license": "MIT",
-            "category": "public",
-            "enabled": true
-        }
-        ```
-    """
+async def get_skill(skill_name: str, user_id: str = Depends(get_current_user_id)) -> SkillResponse:
+    """Get a specific skill by name."""
     try:
-        skills = load_skills(enabled_only=False)
+        skills = load_skills(enabled_only=False, user_id=user_id)
         skill = next((s for s in skills if s.name == skill_name), None)
 
         if skill is None:
@@ -239,84 +191,53 @@ async def get_skill(skill_name: str) -> SkillResponse:
     summary="Update Skill",
     description="Update a skill's enabled status by modifying the skills_state_config.json file.",
 )
-async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillResponse:
-    """Update a skill's enabled status.
+async def update_skill(skill_name: str, request: SkillUpdateRequest, user_id: str = Depends(get_current_user_id)) -> SkillResponse:
+    """Update a skill's enabled status in the user's (or global) extensions config."""
+    from src.config.agents_config import _is_user_scoped
 
-    This will modify the skills_state_config.json file to update the enabled state.
-    The SKILL.md file itself is not modified.
-
-    Args:
-        skill_name: The name of the skill to update.
-        request: The update request containing the new enabled status.
-
-    Returns:
-        The updated skill information.
-
-    Raises:
-        HTTPException: 404 if skill not found, 500 if update fails.
-
-    Example Request:
-        ```json
-        {
-            "enabled": false
-        }
-        ```
-
-    Example Response:
-        ```json
-        {
-            "name": "PDF Processing",
-            "description": "Extract and analyze PDF content",
-            "license": "MIT",
-            "category": "public",
-            "enabled": false
-        }
-        ```
-    """
     try:
-        # Find the skill to verify it exists
-        skills = load_skills(enabled_only=False)
+        skills = load_skills(enabled_only=False, user_id=user_id)
         skill = next((s for s in skills if s.name == skill_name), None)
 
         if skill is None:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
 
-        # Get or create config path
-        config_path = ExtensionsConfig.resolve_config_path()
-        if config_path is None:
-            # Create new config file in parent directory (project root)
-            config_path = Path.cwd().parent / "extensions_config.json"
-            logger.info(f"No existing extensions config found. Creating new config at: {config_path}")
+        if _is_user_scoped(user_id):
+            # Write to user-specific extensions config
+            config_path = get_paths().user_extensions_config_file(user_id)
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            if config_path.exists():
+                with open(config_path) as f:
+                    config_data = json.load(f)
+            else:
+                config_data = {"mcpServers": {}, "skills": {}}
+            config_data.setdefault("skills", {})[skill_name] = {"enabled": request.enabled}
+            with open(config_path, "w") as f:
+                json.dump(config_data, f, indent=2)
+        else:
+            # Global config (original behavior)
+            config_path = ExtensionsConfig.resolve_config_path()
+            if config_path is None:
+                config_path = Path.cwd().parent / "extensions_config.json"
+                logger.info(f"No existing extensions config found. Creating new config at: {config_path}")
 
-        # Load current configuration
-        extensions_config = get_extensions_config()
+            extensions_config = get_extensions_config()
+            extensions_config.skills[skill_name] = SkillStateConfig(enabled=request.enabled)
 
-        # Update the skill's enabled status
-        extensions_config.skills[skill_name] = SkillStateConfig(enabled=request.enabled)
+            config_data = {
+                "mcpServers": {name: server.model_dump() for name, server in extensions_config.mcp_servers.items()},
+                "skills": {name: {"enabled": skill_config.enabled} for name, skill_config in extensions_config.skills.items()},
+            }
+            with open(config_path, "w") as f:
+                json.dump(config_data, f, indent=2)
+            reload_extensions_config()
 
-        # Convert to JSON format (preserve MCP servers config)
-        config_data = {
-            "mcpServers": {name: server.model_dump() for name, server in extensions_config.mcp_servers.items()},
-            "skills": {name: {"enabled": skill_config.enabled} for name, skill_config in extensions_config.skills.items()},
-        }
+        logger.info(f"Skill '{skill_name}' enabled={request.enabled} for user={user_id}")
 
-        # Write the configuration to file
-        with open(config_path, "w") as f:
-            json.dump(config_data, f, indent=2)
-
-        logger.info(f"Skills configuration updated and saved to: {config_path}")
-
-        # Reload the extensions config to update the global cache
-        reload_extensions_config()
-
-        # Reload the skills to get the updated status (for API response)
-        skills = load_skills(enabled_only=False)
+        skills = load_skills(enabled_only=False, user_id=user_id)
         updated_skill = next((s for s in skills if s.name == skill_name), None)
-
         if updated_skill is None:
             raise HTTPException(status_code=500, detail=f"Failed to reload skill '{skill_name}' after update")
-
-        logger.info(f"Skill '{skill_name}' enabled status updated to {request.enabled}")
         return _skill_to_response(updated_skill)
 
     except HTTPException:
@@ -332,7 +253,7 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
     summary="Install Skill",
     description="Install a skill from a .skill file (ZIP archive) located in the thread's user-data directory.",
 )
-async def install_skill(request: SkillInstallRequest) -> SkillInstallResponse:
+async def install_skill(request: SkillInstallRequest, user_id: str = Depends(get_current_user_id)) -> SkillInstallResponse:
     """Install a skill from a .skill file.
 
     The .skill file is a ZIP archive containing a skill directory with SKILL.md
@@ -389,11 +310,15 @@ async def install_skill(request: SkillInstallRequest) -> SkillInstallResponse:
         if not zipfile.is_zipfile(skill_file_path):
             raise HTTPException(status_code=400, detail="File is not a valid ZIP archive")
 
-        # Get the custom skills directory
-        skills_root = get_skills_root_path()
-        custom_skills_dir = skills_root / "custom"
+        # Determine target custom skills directory (user-scoped or global)
+        from src.config.agents_config import _is_user_scoped
 
-        # Create custom directory if it doesn't exist
+        if _is_user_scoped(user_id):
+            custom_skills_dir = get_paths().user_skills_dir(user_id)
+        else:
+            skills_root = get_skills_root_path()
+            custom_skills_dir = skills_root / "custom"
+
         custom_skills_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract to a temporary directory first for validation

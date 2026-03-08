@@ -28,20 +28,34 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
 
     state_schema = SandboxMiddlewareState
 
-    def __init__(self, lazy_init: bool = True):
+    def __init__(self, lazy_init: bool = True, user_id: str | None = None):
         """Initialize sandbox middleware.
 
         Args:
             lazy_init: If True, defer sandbox acquisition until first tool call.
                       If False, acquire sandbox eagerly in before_agent().
                       Default is True for optimal performance.
+            user_id: Authenticated user ID. When provided, the user's encrypted
+                     secrets are injected as environment variables inside the sandbox,
+                     allowing user code to access their own API keys.
         """
         super().__init__()
         self._lazy_init = lazy_init
+        self._user_id = user_id
 
     def _acquire_sandbox(self, thread_id: str) -> str:
+        # Load user secrets to inject into sandbox environment
+        extra_env: dict[str, str] = {}
+        if self._user_id:
+            try:
+                from src.auth.secrets import load_user_secrets
+
+                extra_env = load_user_secrets(self._user_id)
+            except Exception:
+                pass  # Fail open: sandbox still works with platform env vars
+
         provider = get_sandbox_provider()
-        sandbox_id = provider.acquire(thread_id)
+        sandbox_id = provider.acquire(thread_id, user_id=self._user_id, extra_env=extra_env)
         print(f"Acquiring sandbox {sandbox_id}")
         return sandbox_id
 

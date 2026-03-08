@@ -2,6 +2,7 @@
 
 import {
   BellIcon,
+  BotIcon,
   InfoIcon,
   BrainIcon,
   PaletteIcon,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AboutSettingsPage } from "@/components/workspace/settings/about-settings-page";
+import { AgentSettingsPage } from "@/components/workspace/settings/agent-settings-page";
 import { AppearanceSettingsPage } from "@/components/workspace/settings/appearance-settings-page";
 import { MemorySettingsPage } from "@/components/workspace/settings/memory-settings-page";
 import { NotificationSettingsPage } from "@/components/workspace/settings/notification-settings-page";
@@ -31,6 +33,7 @@ type SettingsSection =
   | "memory"
   | "tools"
   | "skills"
+  | "agents"
   | "notification"
   | "about";
 
@@ -71,6 +74,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       },
       { id: "tools", label: t.settings.sections.tools, icon: WrenchIcon },
       { id: "skills", label: t.settings.sections.skills, icon: SparklesIcon },
+      { id: "agents", label: t.settings.sections.agents, icon: BotIcon },
       { id: "about", label: t.settings.sections.about, icon: InfoIcon },
     ],
     [
@@ -78,6 +82,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       t.settings.sections.memory,
       t.settings.sections.tools,
       t.settings.sections.skills,
+      t.settings.sections.agents,
       t.settings.sections.notification,
       t.settings.sections.about,
     ],
@@ -129,6 +134,11 @@ export function SettingsDialog(props: SettingsDialogProps) {
               {activeSection === "tools" && <ToolSettingsPage />}
               {activeSection === "skills" && (
                 <SkillSettingsPage
+                  onClose={() => props.onOpenChange?.(false)}
+                />
+              )}
+              {activeSection === "agents" && (
+                <AgentSettingsPage
                   onClose={() => props.onOpenChange?.(false)}
                 />
               )}

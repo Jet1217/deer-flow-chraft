@@ -35,18 +35,20 @@ export default function AgentChatPage() {
 
   const { agent } = useAgent(agent_name);
 
-  const { threadId, isNewThread, setIsNewThread } = useThreadChat();
+  const { threadId, setThreadId, isNewThread, setIsNewThread } = useThreadChat();
+  const renderThreadId = threadId ?? "new-thread";
 
   const { showNotification } = useNotification();
   const [thread, sendMessage] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     context: { ...settings.context, agent_name: agent_name },
-    onStart: () => {
+    onStart: (realThreadId) => {
       setIsNewThread(false);
+      setThreadId(realThreadId);
       history.replaceState(
         null,
         "",
-        `/workspace/agents/${agent_name}/chats/${threadId}`,
+        `/workspace/agents/${agent_name}/chats/${realThreadId}`,
       );
     },
     onFinish: (state) => {
@@ -80,7 +82,7 @@ export default function AgentChatPage() {
 
   return (
     <ThreadContext.Provider value={{ thread }}>
-      <ChatBox threadId={threadId}>
+      <ChatBox threadId={renderThreadId}>
         <div className="relative flex size-full min-h-0 justify-between">
           <header
             className={cn(
@@ -99,7 +101,7 @@ export default function AgentChatPage() {
             </div>
 
             <div className="flex w-full items-center text-sm font-medium">
-              <ThreadTitle threadId={threadId} thread={thread} />
+              <ThreadTitle threadId={renderThreadId} thread={thread} />
             </div>
             <div className="mr-4 flex items-center">
               <Tooltip content={t.agents.newChat}>
@@ -121,7 +123,7 @@ export default function AgentChatPage() {
             <div className="flex size-full justify-center">
               <MessageList
                 className={cn("size-full", !isNewThread && "pt-10")}
-                threadId={threadId}
+                threadId={renderThreadId}
                 thread={thread}
               />
             </div>

@@ -60,6 +60,11 @@ SANDBOX_IMAGE = os.environ.get(
 SKILLS_HOST_PATH = os.environ.get("SKILLS_HOST_PATH", "/skills")
 THREADS_HOST_PATH = os.environ.get("THREADS_HOST_PATH", "/.deer-flow/threads")
 
+# PVC-based storage (multi-node production).
+# When DEER_FLOW_DATA_PVC is set, the pod mounts skills from the shared PVC using subPath
+# instead of HostPath.  The PVC must support ReadWriteMany / ReadOnlyMany (NFS, EFS, Ceph, etc.).
+DEER_FLOW_DATA_PVC = os.environ.get("DEER_FLOW_DATA_PVC", "")
+
 # Path to the kubeconfig *inside* the provisioner container.
 # Typically the host's ~/.kube/config is mounted here.
 KUBECONFIG_PATH = os.environ.get("KUBECONFIG_PATH", "/root/.kube/config")
@@ -187,6 +192,7 @@ app = FastAPI(title="DeerFlow Sandbox Provisioner", lifespan=lifespan)
 class CreateSandboxRequest(BaseModel):
     sandbox_id: str
     thread_id: str
+    user_id: str | None = None  # Authenticated user for per-user skills mounting
 
 
 class SandboxResponse(BaseModel):
@@ -211,8 +217,118 @@ def _sandbox_url(node_port: int) -> str:
     return f"http://{NODE_HOST}:{node_port}"
 
 
-def _build_pod(sandbox_id: str, thread_id: str) -> k8s_client.V1Pod:
-    """Construct a Pod manifest for a single sandbox."""
+def _build_pvc_volumes(
+    thread_id: str, user_id: str | None
+) -> tuple[list[k8s_client.V1Volume], list[k8s_client.V1VolumeMount]]:
+    """Build volumes and mounts for PVC-based multi-node production deployments.
+
+    Uses subPath to give the sandbox read-only access to:
+    - skills/public/              → /mnt/skills/public  (global public skills)
+    - users/{user_id}/skills/custom/ → /mnt/skills/custom  (user private skills, if user_id)
+
+    The thread's user-data directory is also mounted read-write from the same PVC.
+
+    NOTE: K8s will fail to start the Pod if a subPath that does not exist on the PVC
+    is requested.  The provisioner skips the user-skills mount when user_id is None,
+    and operators should ensure the public skills directory exists on the PVC before
+    deploying sandboxes.
+    """
+    volumes = [
+        k8s_client.V1Volume(
+            name="deer-flow-data",
+            persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
+                claim_name=DEER_FLOW_DATA_PVC,
+                read_only=False,  # PVC itself read-write; individual mounts control read_only
+            ),
+        ),
+    ]
+
+    volume_mounts = [
+        # Global public skills (read-only)
+        k8s_client.V1VolumeMount(
+            name="deer-flow-data",
+            mount_path="/mnt/skills/public",
+            sub_path="skills/public",
+            read_only=True,
+        ),
+        # Thread-specific user data (read-write)
+        k8s_client.V1VolumeMount(
+            name="deer-flow-data",
+            mount_path="/mnt/user-data",
+            sub_path=f"threads/{thread_id}/user-data",
+            read_only=False,
+        ),
+    ]
+
+    # User private skills (read-only) — only when user_id is known
+    if user_id:
+        volume_mounts.append(
+            k8s_client.V1VolumeMount(
+                name="deer-flow-data",
+                mount_path="/mnt/skills/custom",
+                sub_path=f"users/{user_id}/skills/custom",
+                read_only=True,
+            )
+        )
+        logger.info(f"Adding user skills mount for user_id={user_id}")
+
+    return volumes, volume_mounts
+
+
+def _build_hostpath_volumes(
+    thread_id: str, user_id: str | None
+) -> tuple[list[k8s_client.V1Volume], list[k8s_client.V1VolumeMount]]:
+    """Build volumes and mounts using HostPath (single-node / local dev mode).
+
+    Falls back gracefully when DEER_FLOW_DATA_PVC is not configured.
+    user_id is ignored in HostPath mode — public skills dir is mounted wholesale.
+    """
+    volumes = [
+        k8s_client.V1Volume(
+            name="skills",
+            host_path=k8s_client.V1HostPathVolumeSource(
+                path=SKILLS_HOST_PATH,
+                type="Directory",
+            ),
+        ),
+        k8s_client.V1Volume(
+            name="user-data",
+            host_path=k8s_client.V1HostPathVolumeSource(
+                path=f"{THREADS_HOST_PATH}/{thread_id}/user-data",
+                type="DirectoryOrCreate",
+            ),
+        ),
+    ]
+
+    volume_mounts = [
+        k8s_client.V1VolumeMount(
+            name="skills",
+            mount_path="/mnt/skills",
+            read_only=True,
+        ),
+        k8s_client.V1VolumeMount(
+            name="user-data",
+            mount_path="/mnt/user-data",
+            read_only=False,
+        ),
+    ]
+
+    return volumes, volume_mounts
+
+
+def _build_pod(sandbox_id: str, thread_id: str, user_id: str | None = None) -> k8s_client.V1Pod:
+    """Construct a Pod manifest for a single sandbox.
+
+    Selects PVC-based volume mounting when DEER_FLOW_DATA_PVC is configured
+    (production multi-node), otherwise falls back to HostPath (local dev).
+    """
+    if DEER_FLOW_DATA_PVC:
+        volumes, volume_mounts = _build_pvc_volumes(thread_id, user_id)
+        logger.info(f"Using PVC '{DEER_FLOW_DATA_PVC}' for sandbox storage")
+    else:
+        volumes, volume_mounts = _build_hostpath_volumes(thread_id, user_id)
+        logger.info("Using HostPath for sandbox storage (single-node mode)")
+
     return k8s_client.V1Pod(
         metadata=k8s_client.V1ObjectMeta(
             name=_pod_name(sandbox_id),
@@ -269,40 +385,14 @@ def _build_pod(sandbox_id: str, thread_id: str) -> k8s_client.V1Pod:
                             "ephemeral-storage": "500Mi",
                         },
                     ),
-                    volume_mounts=[
-                        k8s_client.V1VolumeMount(
-                            name="skills",
-                            mount_path="/mnt/skills",
-                            read_only=True,
-                        ),
-                        k8s_client.V1VolumeMount(
-                            name="user-data",
-                            mount_path="/mnt/user-data",
-                            read_only=False,
-                        ),
-                    ],
+                    volume_mounts=volume_mounts,
                     security_context=k8s_client.V1SecurityContext(
                         privileged=False,
                         allow_privilege_escalation=True,
                     ),
                 )
             ],
-            volumes=[
-                k8s_client.V1Volume(
-                    name="skills",
-                    host_path=k8s_client.V1HostPathVolumeSource(
-                        path=SKILLS_HOST_PATH,
-                        type="Directory",
-                    ),
-                ),
-                k8s_client.V1Volume(
-                    name="user-data",
-                    host_path=k8s_client.V1HostPathVolumeSource(
-                        path=f"{THREADS_HOST_PATH}/{thread_id}/user-data",
-                        type="DirectoryOrCreate",
-                    ),
-                ),
-            ],
+            volumes=volumes,
             restart_policy="Always",
         ),
     )
@@ -378,9 +468,10 @@ async def create_sandbox(req: CreateSandboxRequest):
     """
     sandbox_id = req.sandbox_id
     thread_id = req.thread_id
+    user_id = req.user_id
 
     logger.info(
-        f"Received request to create sandbox '{sandbox_id}' for thread '{thread_id}'"
+        f"Received request to create sandbox '{sandbox_id}' for thread '{thread_id}' user='{user_id}'"
     )
 
     # ── Fast path: sandbox already exists ────────────────────────────
@@ -394,7 +485,7 @@ async def create_sandbox(req: CreateSandboxRequest):
 
     # ── Create Pod ───────────────────────────────────────────────────
     try:
-        core_v1.create_namespaced_pod(K8S_NAMESPACE, _build_pod(sandbox_id, thread_id))
+        core_v1.create_namespaced_pod(K8S_NAMESPACE, _build_pod(sandbox_id, thread_id, user_id))
         logger.info(f"Created Pod {_pod_name(sandbox_id)}")
     except ApiException as exc:
         if exc.status != 409:  # 409 = AlreadyExists

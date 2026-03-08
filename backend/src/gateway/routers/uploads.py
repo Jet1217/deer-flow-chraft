@@ -3,9 +3,10 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from src.auth import get_current_user_id
 from src.config.paths import VIRTUAL_PATH_PREFIX, get_paths
 from src.sandbox.sandbox_provider import get_sandbox_provider
 
@@ -77,6 +78,7 @@ async def convert_file_to_markdown(file_path: Path) -> Path | None:
 async def upload_files(
     thread_id: str,
     files: list[UploadFile] = File(...),
+    user_id: str = Depends(get_current_user_id),
 ) -> UploadResponse:
     """Upload multiple files to a thread's uploads directory.
 
@@ -92,6 +94,10 @@ async def upload_files(
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
+
+    # Claim thread ownership on first upload (no-op if already claimed or DB unavailable)
+    from src.agents.memory.db import claim_thread_ownership
+    claim_thread_ownership(thread_id, user_id)
 
     uploads_dir = get_uploads_dir(thread_id)
     paths = get_paths()
@@ -165,7 +171,7 @@ async def upload_files(
 
 
 @router.get("/list", response_model=dict)
-async def list_uploaded_files(thread_id: str) -> dict:
+async def list_uploaded_files(thread_id: str, user_id: str = Depends(get_current_user_id)) -> dict:
     """List all files in a thread's uploads directory.
 
     Args:
@@ -174,6 +180,10 @@ async def list_uploaded_files(thread_id: str) -> dict:
     Returns:
         Dictionary containing list of files with their metadata.
     """
+    from src.agents.memory.db import verify_thread_owner
+    if not verify_thread_owner(thread_id, user_id):
+        raise HTTPException(status_code=403, detail="Access denied: you do not own this thread")
+
     uploads_dir = get_uploads_dir(thread_id)
 
     if not uploads_dir.exists():
@@ -200,7 +210,7 @@ async def list_uploaded_files(thread_id: str) -> dict:
 
 
 @router.delete("/{filename}")
-async def delete_uploaded_file(thread_id: str, filename: str) -> dict:
+async def delete_uploaded_file(thread_id: str, filename: str, user_id: str = Depends(get_current_user_id)) -> dict:
     """Delete a file from a thread's uploads directory.
 
     Args:
@@ -210,6 +220,10 @@ async def delete_uploaded_file(thread_id: str, filename: str) -> dict:
     Returns:
         Success message.
     """
+    from src.agents.memory.db import verify_thread_owner
+    if not verify_thread_owner(thread_id, user_id):
+        raise HTTPException(status_code=403, detail="Access denied: you do not own this thread")
+
     uploads_dir = get_uploads_dir(thread_id)
     file_path = uploads_dir / filename
 

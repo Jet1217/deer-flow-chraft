@@ -9,8 +9,8 @@ import { I18nProvider } from "@/core/i18n/context";
 import { detectLocaleServer } from "@/core/i18n/server";
 
 export const metadata: Metadata = {
-  title: "DeerFlow",
-  description: "A LangChain-based framework for building super agents.",
+  title: "Chraft",
+  description: "Think deeper, work faster with Chraft — an AI agent for research, code, and creation.",
 };
 
 const geist = Geist({

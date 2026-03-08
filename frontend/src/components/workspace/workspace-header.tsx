@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquarePlus } from "lucide-react";
+import { BrainCircuitIcon, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -28,21 +28,27 @@ export function WorkspaceHeader({ className }: { className?: string }) {
         )}
       >
         {state === "collapsed" ? (
-          <div className="group-has-data-[collapsible=icon]/sidebar-wrapper:-translate-y flex w-full cursor-pointer items-center justify-center">
-            <div className="text-primary block pt-1 font-serif group-hover/workspace-header:hidden">
-              DF
+          <div className="flex w-full cursor-pointer items-center justify-center">
+            <div className="flex size-6 items-center justify-center rounded-md bg-black dark:bg-white group-hover/workspace-header:hidden">
+              <BrainCircuitIcon className="size-3.5 text-white dark:text-black" />
             </div>
-            <SidebarTrigger className="hidden pl-2 group-hover/workspace-header:block" />
+            <SidebarTrigger className="hidden group-hover/workspace-header:flex" />
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 px-2">
             {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? (
-              <Link href="/" className="text-primary ml-2 font-serif">
-                DeerFlow
+              <Link href="/" className="flex items-center gap-2">
+                <div className="flex size-6 items-center justify-center rounded-md bg-black dark:bg-white">
+                  <BrainCircuitIcon className="size-3.5 text-white dark:text-black" />
+                </div>
+                <span className="text-[14px] font-semibold tracking-tight">Chraft</span>
               </Link>
             ) : (
-              <div className="text-primary ml-2 cursor-default font-serif">
-                DeerFlow
+              <div className="flex items-center gap-2">
+                <div className="flex size-6 items-center justify-center rounded-md bg-black dark:bg-white">
+                  <BrainCircuitIcon className="size-3.5 text-white dark:text-black" />
+                </div>
+                <span className="text-[14px] font-semibold tracking-tight">Chraft</span>
               </div>
             )}
             <SidebarTrigger />

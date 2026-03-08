@@ -126,7 +126,12 @@ export function InputBox({
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { models } = useModels();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (models.length === 0) {
@@ -220,7 +225,7 @@ export function InputBox({
   return (
     <PromptInput
       className={cn(
-        "bg-background/85 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out *:data-[slot='input-group']:rounded-2xl",
+        "bg-background/85 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out [&_[role=group]]:rounded-2xl",
         className,
       )}
       disabled={disabled}
@@ -249,16 +254,18 @@ export function InputBox({
         />
       </PromptInputBody>
       <PromptInputFooter className="flex">
-        <PromptInputTools>
-          {/* TODO: Add more connectors here
-          <PromptInputActionMenu>
-            <PromptInputActionMenuTrigger className="px-2!" />
-            <PromptInputActionMenuContent>
-              <PromptInputActionAddAttachments
-                label={t.inputBox.addAttachments}
-              />
-            </PromptInputActionMenuContent>
-          </PromptInputActionMenu> */}
+        {mounted ? (
+          <>
+            <PromptInputTools>
+              {/* TODO: Add more connectors here
+              <PromptInputActionMenu>
+                <PromptInputActionMenuTrigger className="px-2!" />
+                <PromptInputActionMenuContent>
+                  <PromptInputActionAddAttachments
+                    label={t.inputBox.addAttachments}
+                  />
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu> */}
           <AddAttachmentsButton className="px-2!" />
           <PromptInputActionMenu>
             <ModeHoverGuide
@@ -579,13 +586,24 @@ export function InputBox({
             status={status}
           />
         </PromptInputTools>
+          </>
+        ) : (
+          <PromptInputTools>
+            <PromptInputSubmit
+              className="rounded-full"
+              disabled={disabled}
+              variant="outline"
+              status={status}
+            />
+          </PromptInputTools>
+        )}
       </PromptInputFooter>
       {isNewThread && searchParams.get("mode") !== "skill" && (
         <div className="absolute right-0 -bottom-20 left-0 z-0 flex items-center justify-center">
           <SuggestionList />
         </div>
       )}
-      {!isNewThread && (
+      {isNewThread === false && (
         <div className="bg-background absolute right-0 -bottom-[17px] left-0 z-0 h-4"></div>
       )}
     </PromptInput>

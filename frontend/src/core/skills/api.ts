@@ -1,9 +1,12 @@
+import { getAuthHeaders } from "@/core/api/token";
 import { getBackendBaseURL } from "@/core/config";
 
 import type { Skill } from "./type";
 
 export async function loadSkills() {
-  const skills = await fetch(`${getBackendBaseURL()}/api/skills`);
+  const skills = await fetch(`${getBackendBaseURL()}/api/skills`, {
+    headers: getAuthHeaders(),
+  });
   const json = await skills.json();
   return json.skills as Skill[];
 }
@@ -13,12 +16,8 @@ export async function enableSkill(skillName: string, enabled: boolean) {
     `${getBackendBaseURL()}/api/skills/${skillName}`,
     {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        enabled,
-      }),
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ enabled }),
     },
   );
   return response.json();
@@ -40,9 +39,7 @@ export async function installSkill(
 ): Promise<InstallSkillResponse> {
   const response = await fetch(`${getBackendBaseURL()}/api/skills/install`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(request),
   });
 

@@ -590,11 +590,12 @@ class DeerFlowClient:
             "enabled": updated.enabled,
         }
 
-    def install_skill(self, skill_path: str | Path) -> dict:
+    def install_skill(self, skill_path: str | Path, user_id: str | None = None) -> dict:
         """Install a skill from a .skill archive (ZIP).
 
         Args:
             skill_path: Path to the .skill file.
+            user_id: When provided and not "default", install into the user-private skills dir.
 
         Returns:
             Dict with success, skill_name, message.
@@ -603,6 +604,8 @@ class DeerFlowClient:
             FileNotFoundError: If the file does not exist.
             ValueError: If the file is invalid.
         """
+        from src.config.agents_config import _is_user_scoped
+        from src.config.paths import get_paths as _get_paths
         from src.gateway.routers.skills import _validate_skill_frontmatter
         from src.skills.loader import get_skills_root_path
 
@@ -616,8 +619,11 @@ class DeerFlowClient:
         if not zipfile.is_zipfile(path):
             raise ValueError("File is not a valid ZIP archive")
 
-        skills_root = get_skills_root_path()
-        custom_dir = skills_root / "custom"
+        if _is_user_scoped(user_id):
+            custom_dir = _get_paths().user_skills_dir(user_id)
+        else:
+            skills_root = get_skills_root_path()
+            custom_dir = skills_root / "custom"
         custom_dir.mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory() as tmp:

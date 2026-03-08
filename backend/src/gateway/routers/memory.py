@@ -1,9 +1,10 @@
 """Memory API router for retrieving and managing global memory data."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.agents.memory.updater import get_memory_data, reload_memory_data
+from src.auth import get_current_user_id
 from src.config.memory_config import get_memory_config
 
 router = APIRouter(prefix="/api", tags=["memory"])
@@ -76,43 +77,11 @@ class MemoryStatusResponse(BaseModel):
     "/memory",
     response_model=MemoryResponse,
     summary="Get Memory Data",
-    description="Retrieve the current global memory data including user context, history, and facts.",
+    description="Retrieve the current user memory data including user context, history, and facts.",
 )
-async def get_memory() -> MemoryResponse:
-    """Get the current global memory data.
-
-    Returns:
-        The current memory data with user context, history, and facts.
-
-    Example Response:
-        ```json
-        {
-            "version": "1.0",
-            "lastUpdated": "2024-01-15T10:30:00Z",
-            "user": {
-                "workContext": {"summary": "Working on DeerFlow project", "updatedAt": "..."},
-                "personalContext": {"summary": "Prefers concise responses", "updatedAt": "..."},
-                "topOfMind": {"summary": "Building memory API", "updatedAt": "..."}
-            },
-            "history": {
-                "recentMonths": {"summary": "Recent development activities", "updatedAt": "..."},
-                "earlierContext": {"summary": "", "updatedAt": ""},
-                "longTermBackground": {"summary": "", "updatedAt": ""}
-            },
-            "facts": [
-                {
-                    "id": "fact_abc123",
-                    "content": "User prefers TypeScript over JavaScript",
-                    "category": "preference",
-                    "confidence": 0.9,
-                    "createdAt": "2024-01-15T10:30:00Z",
-                    "source": "thread_xyz"
-                }
-            ]
-        }
-        ```
-    """
-    memory_data = get_memory_data()
+async def get_memory(user_id: str = Depends(get_current_user_id)) -> MemoryResponse:
+    """Get the current memory data for the authenticated user."""
+    memory_data = get_memory_data(user_id=user_id)
     return MemoryResponse(**memory_data)
 
 
@@ -120,18 +89,11 @@ async def get_memory() -> MemoryResponse:
     "/memory/reload",
     response_model=MemoryResponse,
     summary="Reload Memory Data",
-    description="Reload memory data from the storage file, refreshing the in-memory cache.",
+    description="Reload memory data, refreshing the in-memory cache.",
 )
-async def reload_memory() -> MemoryResponse:
-    """Reload memory data from file.
-
-    This forces a reload of the memory data from the storage file,
-    useful when the file has been modified externally.
-
-    Returns:
-        The reloaded memory data.
-    """
-    memory_data = reload_memory_data()
+async def reload_memory(user_id: str = Depends(get_current_user_id)) -> MemoryResponse:
+    """Reload memory data, invalidating the cache for the current user."""
+    memory_data = reload_memory_data(user_id=user_id)
     return MemoryResponse(**memory_data)
 
 
@@ -176,16 +138,16 @@ async def get_memory_config_endpoint() -> MemoryConfigResponse:
     "/memory/status",
     response_model=MemoryStatusResponse,
     summary="Get Memory Status",
-    description="Retrieve both memory configuration and current data in a single request.",
+    description="Retrieve both memory configuration and current user data in a single request.",
 )
-async def get_memory_status() -> MemoryStatusResponse:
+async def get_memory_status(user_id: str = Depends(get_current_user_id)) -> MemoryStatusResponse:
     """Get the memory system status including configuration and data.
 
     Returns:
         Combined memory configuration and current data.
     """
     config = get_memory_config()
-    memory_data = get_memory_data()
+    memory_data = get_memory_data(user_id=user_id)
 
     return MemoryStatusResponse(
         config=MemoryConfigResponse(

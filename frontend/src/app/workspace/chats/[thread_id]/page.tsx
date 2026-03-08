@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
@@ -27,18 +27,25 @@ export default function ChatPage() {
   const { t } = useI18n();
   const [settings, setSettings] = useLocalSettings();
 
-  const { threadId, isNewThread, setIsNewThread, isMock } = useThreadChat();
+  const { threadId, setThreadId, isNewThread, setIsNewThread, isMock, initialQuery } = useThreadChat();
+  const renderThreadId = threadId ?? "new-thread";
   useSpecificChatMode();
 
   const { showNotification } = useNotification();
 
+  // Track whether we've already fired the auto-send so we don't repeat it.
+  const [initialQuerySent, setInitialQuerySent] = useState(false);
+
   const [thread, sendMessage] = useThreadStream({
-    threadId: isNewThread ? undefined : threadId,
+    // When there's a pending initialQuery the backend thread doesn't exist yet —
+    // pass undefined so useStream creates a fresh thread on submit.
+    threadId: isNewThread ? undefined : (initialQuery && !initialQuerySent ? undefined : threadId),
     context: settings.context,
     isMock,
-    onStart: () => {
+    onStart: (realThreadId) => {
       setIsNewThread(false);
-      history.replaceState(null, "", `/workspace/chats/${threadId}`);
+      setThreadId(realThreadId);
+      history.replaceState(null, "", `/workspace/chats/${realThreadId}`);
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -58,6 +65,14 @@ export default function ChatPage() {
     },
   });
 
+  // Auto-send the initial query from the home page (?q=...).
+  useEffect(() => {
+    if (initialQuery && !initialQuerySent) {
+      setInitialQuerySent(true);
+      void sendMessage(threadId, { text: initialQuery, files: [] });
+    }
+  }, [initialQuery, initialQuerySent, sendMessage, threadId]);
+
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       void sendMessage(threadId, message);
@@ -70,7 +85,7 @@ export default function ChatPage() {
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
-      <ChatBox threadId={threadId}>
+      <ChatBox threadId={renderThreadId}>
         <div className="relative flex size-full min-h-0 justify-between">
           <header
             className={cn(
@@ -81,7 +96,7 @@ export default function ChatPage() {
             )}
           >
             <div className="flex w-full items-center text-sm font-medium">
-              <ThreadTitle threadId={threadId} thread={thread} />
+              <ThreadTitle threadId={renderThreadId} thread={thread} />
             </div>
             <div>
               <ArtifactTrigger />
@@ -91,7 +106,7 @@ export default function ChatPage() {
             <div className="flex size-full justify-center">
               <MessageList
                 className={cn("size-full", !isNewThread && "pt-10")}
-                threadId={threadId}
+                threadId={renderThreadId}
                 thread={thread}
               />
             </div>

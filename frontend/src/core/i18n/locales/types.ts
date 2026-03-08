@@ -205,8 +205,13 @@ export interface Translations {
       memory: string;
       tools: string;
       skills: string;
+      agents: string;
       notification: string;
       about: string;
+    };
+    agents: {
+      title: string;
+      description: string;
     };
     memory: {
       title: string;

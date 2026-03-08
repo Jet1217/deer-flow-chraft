@@ -12,6 +12,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSidebar } from "@/components/ui/sidebar";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { MessageList } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
@@ -29,6 +30,7 @@ const NAME_RE = /^[A-Za-z0-9-]+$/;
 export default function NewAgentPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const { setOpen: setSidebarOpen } = useSidebar();
 
   // ── Step 1: name form ──────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("name");
@@ -187,7 +189,7 @@ export default function NewAgentPage() {
 
   return (
     <ThreadContext.Provider value={{ thread }}>
-      <ArtifactsProvider>
+      <ArtifactsProvider onArtifactSelect={() => setSidebarOpen(false)}>
         <div className="flex size-full flex-col">
           {header}
 

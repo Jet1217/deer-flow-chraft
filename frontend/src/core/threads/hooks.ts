@@ -39,10 +39,11 @@ export function useThreadStream({
   const [_threadId, setThreadId] = useState<string | null>(threadId ?? null);
 
   useEffect(() => {
-    if (_threadId && _threadId !== threadId) {
-      setThreadId(threadId ?? null);
+    const nextThreadId = threadId ?? null;
+    if (_threadId !== nextThreadId) {
+      setThreadId(nextThreadId);
     }
-  }, [threadId, _threadId]);
+  }, [_threadId, threadId]);
 
   const queryClient = useQueryClient();
   const updateSubtask = useUpdateSubtask();
@@ -87,11 +88,11 @@ export function useThreadStream({
 
   const sendMessage = useCallback(
     async (
-      threadId: string,
+      threadId: string | null | undefined,
       message: PromptInputMessage,
       extraContext?: Record<string, unknown>,
     ) => {
-      const text = message.text.trim();
+      const text = (message.text ?? "").trim();
 
       // Upload files first if any
       if (message.files && message.files.length > 0) {
@@ -162,7 +163,7 @@ export function useThreadStream({
           ],
         },
         {
-          threadId: threadId,
+          ...(threadId ? { threadId } : {}),
           streamSubgraphs: true,
           streamResumable: true,
           streamMode: ["values", "messages-tuple", "custom"],
@@ -175,14 +176,14 @@ export function useThreadStream({
             thinking_enabled: context.mode !== "flash",
             is_plan_mode: context.mode === "pro" || context.mode === "ultra",
             subagent_enabled: context.mode === "ultra",
-            thread_id: threadId,
+            thread_id: threadId || _threadId,
           },
         },
       );
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
       // afterSubmit?.();
     },
-    [thread, context, queryClient],
+    [_threadId, context, queryClient, thread],
   );
   return [thread, sendMessage] as const;
 }

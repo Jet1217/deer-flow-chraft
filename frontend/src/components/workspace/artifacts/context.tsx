@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-import { useSidebar } from "@/components/ui/sidebar";
 import { env } from "@/env";
 
 export interface ArtifactsContextType {
@@ -23,9 +22,10 @@ const ArtifactsContext = createContext<ArtifactsContextType | undefined>(
 
 interface ArtifactsProviderProps {
   children: ReactNode;
+  onArtifactSelect?: () => void;
 }
 
-export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
+export function ArtifactsProvider({ children, onArtifactSelect }: ArtifactsProviderProps) {
   const [artifacts, setArtifacts] = useState<string[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
   const [autoSelect, setAutoSelect] = useState(true);
@@ -33,12 +33,11 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
   const [autoOpen, setAutoOpen] = useState(true);
-  const { setOpen: setSidebarOpen } = useSidebar();
 
   const select = (artifact: string, autoSelect = false) => {
     setSelectedArtifact(artifact);
     if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true") {
-      setSidebarOpen(false);
+      onArtifactSelect?.();
     }
     if (!autoSelect) {
       setAutoSelect(false);
