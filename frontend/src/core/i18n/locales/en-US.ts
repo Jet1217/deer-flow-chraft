@@ -186,6 +186,9 @@ export const enUS: Translations = {
     agentCreated: "Agent created!",
     startChatting: "Start chatting",
     backToGallery: "Back to Gallery",
+    builtinSection: "Built-in",
+    customSection: "Custom",
+    builtinBadge: "Built-in — read only",
   },
 
   // Breadcrumb

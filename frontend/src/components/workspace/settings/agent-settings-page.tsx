@@ -1,6 +1,6 @@
 "use client";
 
-import { BotIcon, MessageSquareIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { BotIcon, LockIcon, MessageSquareIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAgents, useDeleteAgent } from "@/core/agents";
 import type { Agent } from "@/core/agents/types";
 import { useI18n } from "@/core/i18n/hooks";
@@ -64,8 +65,13 @@ function AgentSettingsList({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const [tab, setTab] = useState<"builtin" | "custom">("builtin");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const { mutate: deleteAgent, isPending: isDeleting } = useDeleteAgent();
+
+  const builtinAgents = agents.filter((a) => a.builtin);
+  const customAgents = agents.filter((a) => !a.builtin);
+  const displayedAgents = tab === "builtin" ? builtinAgents : customAgents;
 
   const handleNewAgent = () => {
     onClose?.();
@@ -91,57 +97,82 @@ function AgentSettingsList({
     });
   };
 
+  const renderAgentItem = (agent: Agent) => (
+    <Item className="w-full" variant="outline" key={agent.name}>
+      <ItemContent>
+        <ItemTitle>
+          <div className="flex items-center gap-2">
+            <BotIcon className="text-muted-foreground size-4" />
+            {agent.name}
+            {agent.builtin && (
+              <LockIcon
+                className="text-muted-foreground size-3"
+                title={t.agents.builtinBadge}
+              />
+            )}
+          </div>
+        </ItemTitle>
+        {agent.description && (
+          <ItemDescription className="line-clamp-2">
+            {agent.description}
+          </ItemDescription>
+        )}
+      </ItemContent>
+      <ItemActions>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleChat(agent.name)}
+          title={t.agents.chat}
+        >
+          <MessageSquareIcon className="size-4" />
+          <span className="hidden sm:inline">{t.agents.chat}</span>
+        </Button>
+        {!agent.builtin && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setDeleteTarget(agent.name)}
+            title={t.agents.delete}
+          >
+            <Trash2Icon className="size-4" />
+            <span className="hidden sm:inline">{t.agents.delete}</span>
+          </Button>
+        )}
+      </ItemActions>
+    </Item>
+  );
+
   return (
     <>
       <div className="flex w-full flex-col gap-4">
-        <header className="flex justify-end">
+        <header className="flex justify-between">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as "builtin" | "custom")}
+          >
+            <TabsList variant="line">
+              <TabsTrigger value="builtin">
+                {t.agents.builtinSection}
+              </TabsTrigger>
+              <TabsTrigger value="custom">
+                {t.agents.customSection}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Button size="sm" onClick={handleNewAgent}>
             <PlusIcon className="size-4" />
             {t.agents.newAgent}
           </Button>
         </header>
 
-        {agents.length === 0 ? (
+        {tab === "custom" && customAgents.length === 0 ? (
           <EmptyAgents onCreateAgent={handleNewAgent} />
         ) : (
-          agents.map((agent) => (
-            <Item className="w-full" variant="outline" key={agent.name}>
-              <ItemContent>
-                <ItemTitle>
-                  <div className="flex items-center gap-2">
-                    <BotIcon className="text-muted-foreground size-4" />
-                    {agent.name}
-                  </div>
-                </ItemTitle>
-                {agent.description && (
-                  <ItemDescription className="line-clamp-2">
-                    {agent.description}
-                  </ItemDescription>
-                )}
-              </ItemContent>
-              <ItemActions>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleChat(agent.name)}
-                  title={t.agents.chat}
-                >
-                  <MessageSquareIcon className="size-4" />
-                  <span className="hidden sm:inline">{t.agents.chat}</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setDeleteTarget(agent.name)}
-                  title={t.agents.delete}
-                >
-                  <Trash2Icon className="size-4" />
-                  <span className="hidden sm:inline">{t.agents.delete}</span>
-                </Button>
-              </ItemActions>
-            </Item>
-          ))
+          <div className="flex flex-col gap-2">
+            {displayedAgents.map(renderAgentItem)}
+          </div>
         )}
       </div>
 

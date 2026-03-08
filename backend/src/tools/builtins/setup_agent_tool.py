@@ -7,6 +7,7 @@ from langgraph.prebuilt import ToolRuntime
 from langgraph.types import Command
 
 from src.config.agents_config import AGENT_NAME_PATTERN, _is_user_scoped
+from src.config.builtin_agents import is_builtin_agent
 from src.config.paths import get_paths
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,12 @@ def setup_agent(
     if not AGENT_NAME_PATTERN.match(resolved_name):
         return Command(update={"messages": [ToolMessage(
             content=f"Error: invalid agent name '{resolved_name}'. Use only letters, digits, and hyphens (e.g. 'my-agent').",
+            tool_call_id=runtime.tool_call_id,
+        )]})
+
+    if is_builtin_agent(resolved_name):
+        return Command(update={"messages": [ToolMessage(
+            content=f"Error: '{resolved_name}' is a built-in agent and cannot be created or modified.",
             tool_call_id=runtime.tool_call_id,
         )]})
 

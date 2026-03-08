@@ -39,11 +39,10 @@ export function useThreadStream({
   const [_threadId, setThreadId] = useState<string | null>(threadId ?? null);
 
   useEffect(() => {
-    const nextThreadId = threadId ?? null;
-    if (_threadId !== nextThreadId) {
-      setThreadId(nextThreadId);
+    if (_threadId && _threadId !== threadId) {
+      setThreadId(threadId ?? null);
     }
-  }, [_threadId, threadId]);
+  }, [threadId, _threadId]);
 
   const queryClient = useQueryClient();
   const updateSubtask = useUpdateSubtask();
@@ -88,7 +87,7 @@ export function useThreadStream({
 
   const sendMessage = useCallback(
     async (
-      threadId: string | null | undefined,
+      threadId: string,
       message: PromptInputMessage,
       extraContext?: Record<string, unknown>,
     ) => {
@@ -183,7 +182,7 @@ export function useThreadStream({
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
       // afterSubmit?.();
     },
-    [_threadId, context, queryClient, thread],
+    [thread, context, queryClient],
   );
   return [thread, sendMessage] as const;
 }

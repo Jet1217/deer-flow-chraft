@@ -28,7 +28,6 @@ export default function ChatPage() {
   const [settings, setSettings] = useLocalSettings();
 
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock, initialQuery } = useThreadChat();
-  const renderThreadId = threadId ?? "new-thread";
   useSpecificChatMode();
 
   const { showNotification } = useNotification();
@@ -85,7 +84,7 @@ export default function ChatPage() {
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
-      <ChatBox threadId={renderThreadId}>
+      <ChatBox threadId={threadId}>
         <div className="relative flex size-full min-h-0 justify-between">
           <header
             className={cn(
@@ -96,7 +95,7 @@ export default function ChatPage() {
             )}
           >
             <div className="flex w-full items-center text-sm font-medium">
-              <ThreadTitle threadId={renderThreadId} thread={thread} />
+              <ThreadTitle threadId={threadId} thread={thread} />
             </div>
             <div>
               <ArtifactTrigger />
@@ -106,7 +105,7 @@ export default function ChatPage() {
             <div className="flex size-full justify-center">
               <MessageList
                 className={cn("size-full", !isNewThread && "pt-10")}
-                threadId={renderThreadId}
+                threadId={threadId}
                 thread={thread}
               />
             </div>

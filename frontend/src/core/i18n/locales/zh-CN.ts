@@ -178,6 +178,9 @@ export const zhCN: Translations = {
     agentCreated: "智能体已创建！",
     startChatting: "开始对话",
     backToGallery: "返回 Gallery",
+    builtinSection: "内置",
+    customSection: "自定义",
+    builtinBadge: "内置 — 只读",
   },
 
   // Breadcrumb

@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from src.sandbox.local.local_sandbox import LocalSandbox
 from src.sandbox.sandbox import Sandbox
 from src.sandbox.sandbox_provider import SandboxProvider
@@ -11,6 +14,7 @@ class LocalSandboxProvider(SandboxProvider):
     def __init__(self):
         """Initialize the local sandbox provider."""
         self._global_path_mappings = self._build_global_path_mappings()
+        self._readonly_paths = self._build_readonly_paths()
 
     def _build_global_path_mappings(self) -> dict[str, str]:
         """Build path mappings for the global (non-user-scoped) sandbox.
@@ -31,6 +35,52 @@ class LocalSandboxProvider(SandboxProvider):
             print(f"Warning: Could not setup skills path mapping: {e}")
 
         return mappings
+
+    def _build_readonly_paths(self) -> list[str]:
+        """Return host paths that the sandbox must never write to.
+
+        Currently protects the skills/public directory so that neither
+        write_file nor bash commands can modify built-in skills.
+
+        Also attempts to set the directory as OS-level read-only (chmod a-w)
+        so that even shell commands executed by the agent will be rejected by
+        the kernel, providing a second independent layer of protection.
+        """
+        try:
+            from src.config import get_app_config
+
+            skills_path = get_app_config().skills.get_skills_path()
+            public_dir = skills_path / "public"
+            if public_dir.exists():
+                self._enforce_readonly_fs(public_dir)
+                return [str(public_dir)]
+        except Exception as e:
+            print(f"Warning: Could not determine read-only skills path: {e}")
+        return []
+
+    @staticmethod
+    def _enforce_readonly_fs(directory: Path) -> None:
+        """Recursively remove write permission from a directory tree.
+
+        This is a best-effort OS-level protection.  Failures are logged but do
+        not prevent the application from starting.
+        """
+        import stat
+
+        try:
+            for root, dirs, files in os.walk(directory):
+                for name in files + dirs:
+                    target = os.path.join(root, name)
+                    try:
+                        current = os.stat(target).st_mode
+                        os.chmod(target, current & ~(stat.S_IWRITE | stat.S_IWGRP | stat.S_IWOTH))
+                    except OSError:
+                        pass
+            # Also protect the directory itself
+            current = os.stat(directory).st_mode
+            os.chmod(directory, current & ~(stat.S_IWRITE | stat.S_IWGRP | stat.S_IWOTH))
+        except Exception as e:
+            print(f"Warning: Could not set read-only permissions on {directory}: {e}")
 
     def _build_user_path_mappings(self, user_id: str) -> dict[str, str]:
         """Build path mappings for a specific authenticated user.
@@ -66,7 +116,7 @@ class LocalSandboxProvider(SandboxProvider):
 
         if sandbox_id not in _sandboxes:
             path_mappings = self._build_user_path_mappings(user_id) if is_scoped else self._global_path_mappings
-            _sandboxes[sandbox_id] = LocalSandbox(sandbox_id, path_mappings=path_mappings)
+            _sandboxes[sandbox_id] = LocalSandbox(sandbox_id, path_mappings=path_mappings, readonly_paths=self._readonly_paths)
 
         return sandbox_id
 

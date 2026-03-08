@@ -127,6 +127,9 @@ export interface Translations {
     agentCreated: string;
     startChatting: string;
     backToGallery: string;
+    builtinSection: string;
+    customSection: string;
+    builtinBadge: string;
   };
 
   // Breadcrumb

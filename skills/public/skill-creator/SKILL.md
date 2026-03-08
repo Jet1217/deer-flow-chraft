@@ -8,6 +8,8 @@ license: Complete terms in LICENSE.txt
 
 This skill provides guidance for creating effective skills.
 
+> **CRITICAL — Read-only constraint on built-in skills:** Skills located under `skills/public/` (the built-in skills shipped with the system) are **read-only**. You MUST NOT edit, overwrite, delete, or move any file inside `skills/public/` under any circumstances, even if the user explicitly asks. Politely explain that built-in skills cannot be modified, and offer to create a new custom skill under `skills/custom/` instead.
+
 ## About Skills
 
 Skills are modular, self-contained packages that extend Claude's capabilities by providing

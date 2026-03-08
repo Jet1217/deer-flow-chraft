@@ -8,7 +8,7 @@ from src.sandbox.sandbox import Sandbox
 
 
 class LocalSandbox(Sandbox):
-    def __init__(self, id: str, path_mappings: dict[str, str] | None = None):
+    def __init__(self, id: str, path_mappings: dict[str, str] | None = None, readonly_paths: list[str] | None = None):
         """
         Initialize local sandbox with optional path mappings.
 
@@ -16,9 +16,28 @@ class LocalSandbox(Sandbox):
             id: Sandbox identifier
             path_mappings: Dictionary mapping container paths to local paths
                           Example: {"/mnt/skills": "/absolute/path/to/skills"}
+            readonly_paths: List of resolved host paths that must never be written to.
+                            Any write or destructive shell command targeting these paths
+                            will be blocked with an error.
         """
         super().__init__(id)
         self.path_mappings = path_mappings or {}
+        self._readonly_resolved: list[Path] = [Path(p).resolve() for p in (readonly_paths or [])]
+
+    def _is_readonly(self, host_path: str) -> bool:
+        """Return True if host_path falls under any protected read-only directory."""
+        resolved = Path(host_path).resolve()
+        return any(
+            resolved == ro or ro in resolved.parents
+            for ro in self._readonly_resolved
+        )
+
+    def _check_write(self, host_path: str) -> None:
+        """Raise PermissionError if host_path is inside a read-only directory."""
+        if self._is_readonly(host_path):
+            # Convert back to the container path for the error message if possible
+            container = self._reverse_resolve_path(host_path)
+            raise PermissionError(f"Write access denied: '{container}' is read-only (built-in skill).")
 
     def _resolve_path(self, path: str) -> str:
         """
@@ -156,6 +175,20 @@ class LocalSandbox(Sandbox):
         # Resolve container paths in command before execution
         resolved_command = self._resolve_paths_in_command(command)
 
+        # Block bash commands that target read-only paths.
+        # Check whether the resolved text of any protected path appears in the command —
+        # this catches direct references like `rm /path/to/skills/public/foo/SKILL.md`.
+        # Indirect attacks (cd + relative path) are not caught here but are blocked by
+        # the OS-level read-only check in write_file/update_file for our own tool calls,
+        # and the sandbox itself has no sudo so destructive shell writes to these paths
+        # will fail with a system-level permission error if the directory is not writable.
+        if self._readonly_resolved:
+            for ro in self._readonly_resolved:
+                ro_str = str(ro)
+                if ro_str in resolved_command:
+                    container = self._reverse_resolve_path(ro_str)
+                    return f"Error: Write access denied — '{container}' is read-only (built-in skill)."
+
         result = subprocess.run(
             resolved_command,
             executable=self._get_shell(),
@@ -187,6 +220,7 @@ class LocalSandbox(Sandbox):
 
     def write_file(self, path: str, content: str, append: bool = False) -> None:
         resolved_path = self._resolve_path(path)
+        self._check_write(resolved_path)
         dir_path = os.path.dirname(resolved_path)
         if dir_path:
             os.makedirs(dir_path, exist_ok=True)
@@ -196,6 +230,7 @@ class LocalSandbox(Sandbox):
 
     def update_file(self, path: str, content: bytes) -> None:
         resolved_path = self._resolve_path(path)
+        self._check_write(resolved_path)
         dir_path = os.path.dirname(resolved_path)
         if dir_path:
             os.makedirs(dir_path, exist_ok=True)

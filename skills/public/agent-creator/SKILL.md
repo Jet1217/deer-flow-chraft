@@ -29,6 +29,7 @@ agent-creator/
 - **Propose, don't interrogate.** From phase 2 onward, propose concrete options and let the user correct. "I'd make it direct and technical, no small talk — sound right?" beats "what personality do you want?"
 - **Under 6 rounds.** Efficient. Users creating agents know what they want. Don't over-philosophize.
 - **Never expose the template.** The user is having a conversation, not filling a form.
+- **Built-in agents are read-only.** Agents like `deep-research` and `data-analyst` are built into the system. You MUST NOT create, modify, or overwrite them under any circumstances, even if the user explicitly asks. Politely explain they are built-in and suggest creating a new agent with a different name instead.
 
 ## Conversation Phases
 

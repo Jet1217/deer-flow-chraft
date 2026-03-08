@@ -1,6 +1,6 @@
 "use client";
 
-import { BotIcon, MessageSquareIcon, Trash2Icon } from "lucide-react";
+import { BotIcon, LockIcon, MessageSquareIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -71,6 +71,9 @@ export function AgentCard({ agent }: AgentCardProps) {
                 )}
               </div>
             </div>
+            {agent.builtin && (
+              <LockIcon className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" title={t.agents.builtinBadge} />
+            )}
           </div>
           {agent.description && (
             <CardDescription className="mt-2 line-clamp-2 text-sm">
@@ -97,15 +100,17 @@ export function AgentCard({ agent }: AgentCardProps) {
             {t.agents.chat}
           </Button>
           <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive hover:text-destructive h-8 w-8 shrink-0"
-              onClick={() => setDeleteOpen(true)}
-              title={t.agents.delete}
-            >
-              <Trash2Icon className="h-3.5 w-3.5" />
-            </Button>
+            {!agent.builtin && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-destructive hover:text-destructive h-8 w-8 shrink-0"
+                onClick={() => setDeleteOpen(true)}
+                title={t.agents.delete}
+              >
+                <Trash2Icon className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </CardFooter>
       </Card>

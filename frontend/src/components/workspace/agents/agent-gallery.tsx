@@ -2,8 +2,10 @@
 
 import { BotIcon, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAgents } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 
@@ -13,10 +15,15 @@ export function AgentGallery() {
   const { t } = useI18n();
   const { agents, isLoading } = useAgents();
   const router = useRouter();
+  const [tab, setTab] = useState<"builtin" | "custom">("builtin");
 
   const handleNewAgent = () => {
     router.push("/workspace/agents/new");
   };
+
+  const builtinAgents = agents.filter((a) => a.builtin);
+  const customAgents = agents.filter((a) => !a.builtin);
+  const displayedAgents = tab === "builtin" ? builtinAgents : customAgents;
 
   return (
     <div className="flex size-full flex-col">
@@ -40,27 +47,49 @@ export function AgentGallery() {
           <div className="text-muted-foreground flex h-40 items-center justify-center text-sm">
             {t.common.loading}
           </div>
-        ) : agents.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-            <div className="bg-muted flex h-14 w-14 items-center justify-center rounded-full">
-              <BotIcon className="text-muted-foreground h-7 w-7" />
-            </div>
-            <div>
-              <p className="font-medium">{t.agents.emptyTitle}</p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {t.agents.emptyDescription}
-              </p>
-            </div>
-            <Button variant="outline" className="mt-2" onClick={handleNewAgent}>
-              <PlusIcon className="mr-1.5 h-4 w-4" />
-              {t.agents.newAgent}
-            </Button>
-          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {agents.map((agent) => (
-              <AgentCard key={agent.name} agent={agent} />
-            ))}
+          <div className="flex flex-col gap-4">
+            <Tabs
+              value={tab}
+              onValueChange={(v) => setTab(v as "builtin" | "custom")}
+            >
+              <TabsList variant="line">
+                <TabsTrigger value="builtin">
+                  {t.agents.builtinSection}
+                </TabsTrigger>
+                <TabsTrigger value="custom">
+                  {t.agents.customSection}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {tab === "custom" && customAgents.length === 0 ? (
+              <div className="flex h-48 flex-col items-center justify-center gap-3 text-center">
+                <div className="bg-muted flex h-14 w-14 items-center justify-center rounded-full">
+                  <BotIcon className="text-muted-foreground h-7 w-7" />
+                </div>
+                <div>
+                  <p className="font-medium">{t.agents.emptyTitle}</p>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    {t.agents.emptyDescription}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="mt-2"
+                  onClick={handleNewAgent}
+                >
+                  <PlusIcon className="mr-1.5 h-4 w-4" />
+                  {t.agents.newAgent}
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {displayedAgents.map((agent) => (
+                  <AgentCard key={agent.name} agent={agent} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ export interface Agent {
   model: string | null;
   tool_groups: string[] | null;
   soul?: string | null;
+  builtin?: boolean;
 }
 
 export interface CreateAgentRequest {

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from src.auth import get_current_user_id
 from src.config.agents_config import AgentConfig, _is_user_scoped, list_custom_agents, load_agent_config, load_agent_soul
+from src.config.builtin_agents import BUILTIN_AGENTS, is_builtin_agent
 from src.config.paths import get_paths
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class AgentResponse(BaseModel):
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     soul: str | None = Field(default=None, description="SOUL.md content (included on GET /{name})")
+    builtin: bool = Field(default=False, description="True when this is a built-in agent that cannot be modified or deleted")
 
 
 class AgentsListResponse(BaseModel):
@@ -74,10 +76,10 @@ def _normalize_agent_name(name: str) -> str:
     return name.lower()
 
 
-def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False, user_id: str | None = None) -> AgentResponse:
+def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False, user_id: str | None = None, builtin: bool = False) -> AgentResponse:
     """Convert AgentConfig to AgentResponse."""
     soul: str | None = None
-    if include_soul:
+    if include_soul and not builtin:
         soul = load_agent_soul(agent_cfg.name, user_id=user_id) or ""
 
     return AgentResponse(
@@ -86,6 +88,7 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         soul=soul,
+        builtin=builtin,
     )
 
 
@@ -99,11 +102,14 @@ async def list_agents(user_id: str = Depends(get_current_user_id)) -> AgentsList
     """List all custom agents.
 
     Returns:
-        List of all custom agents with their metadata (without soul content).
+        List of built-in agents followed by all user-created custom agents
+        (without soul content).
     """
     try:
-        agents = list_custom_agents(user_id=user_id)
-        return AgentsListResponse(agents=[_agent_config_to_response(a, user_id=user_id) for a in agents])
+        builtin_responses = [_agent_config_to_response(a, builtin=True) for a in BUILTIN_AGENTS]
+        custom_agents = list_custom_agents(user_id=user_id)
+        custom_responses = [_agent_config_to_response(a, user_id=user_id) for a in custom_agents]
+        return AgentsListResponse(agents=builtin_responses + custom_responses)
     except Exception as e:
         logger.error(f"Failed to list agents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
@@ -128,6 +134,9 @@ async def check_agent_name(name: str, user_id: str = Depends(get_current_user_id
     """
     _validate_agent_name(name)
     normalized = _normalize_agent_name(name)
+    # Built-in agent names are always considered taken
+    if is_builtin_agent(normalized):
+        return {"available": False, "name": normalized}
     if _is_user_scoped(user_id):
         available = not get_paths().user_agent_dir(user_id, normalized).exists()
     else:
@@ -148,13 +157,20 @@ async def get_agent(name: str, user_id: str = Depends(get_current_user_id)) -> A
         name: The agent name.
 
     Returns:
-        Agent details including SOUL.md content.
+        Agent details including SOUL.md content (or empty soul for built-in agents).
 
     Raises:
         HTTPException: 404 if agent not found.
     """
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
+
+    # Check built-in agents first
+    if is_builtin_agent(name):
+        for agent in BUILTIN_AGENTS:
+            if agent.name == name:
+                return _agent_config_to_response(agent, include_soul=False, builtin=True)
+        raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
 
     try:
         agent_cfg = load_agent_config(name, user_id=user_id)
@@ -248,10 +264,14 @@ async def update_agent(name: str, request: AgentUpdateRequest, user_id: str = De
         The updated agent details.
 
     Raises:
+        HTTPException: 403 if the agent is a built-in agent.
         HTTPException: 404 if agent not found.
     """
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
+
+    if is_builtin_agent(name):
+        raise HTTPException(status_code=403, detail=f"Built-in agent '{name}' cannot be modified.")
 
     try:
         agent_cfg = load_agent_config(name, user_id=user_id)
@@ -384,10 +404,14 @@ async def delete_agent(name: str, user_id: str = Depends(get_current_user_id)) -
         name: The agent name.
 
     Raises:
+        HTTPException: 403 if the agent is a built-in agent.
         HTTPException: 404 if agent not found.
     """
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
+
+    if is_builtin_agent(name):
+        raise HTTPException(status_code=403, detail=f"Built-in agent '{name}' cannot be deleted.")
 
     if _is_user_scoped(user_id):
         agent_dir = get_paths().user_agent_dir(user_id, name)
