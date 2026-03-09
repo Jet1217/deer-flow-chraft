@@ -51,6 +51,11 @@ class Paths:
         if cwd.name == "backend" or (cwd / "pyproject.toml").exists():
             return cwd / ".deer-flow"
 
+        # Docker: working_dir is /app, backend is at /app/backend
+        backend_candidate = cwd / "backend"
+        if (backend_candidate / "pyproject.toml").exists():
+            return backend_candidate / ".deer-flow"
+
         return Path.home() / ".deer-flow"
 
     @property

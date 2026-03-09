@@ -1,8 +1,10 @@
 """Cron job management API.
 
-Provides CRUD endpoints for scheduled tasks. Jobs are persisted to
-`backend/.deer-flow/cron-jobs.json` and executed by the cron runner
-(APScheduler) that starts with the Gateway.
+Read-only view of scheduled tasks. The actual scheduling is handled by the
+system crontab — this API only reads/writes the cron-jobs.json config file.
+
+The cron-scheduler skill is responsible for keeping crontab in sync with the
+config file whenever jobs are created, updated, or deleted.
 """
 
 from __future__ import annotations
@@ -16,20 +18,19 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from src.config.paths import resolve_path
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cron-jobs", tags=["cron"])
+
 
 # ---------------------------------------------------------------------------
 # Storage helpers
 # ---------------------------------------------------------------------------
 
-_CRON_JOBS_FILE = ".deer-flow/cron-jobs.json"
-
 
 def _jobs_path() -> Path:
-    path = resolve_path(_CRON_JOBS_FILE)
+    from src.config.paths import get_paths
+
+    path = get_paths().base_dir / "cron-jobs.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -55,10 +56,10 @@ def _save_jobs(jobs: dict[str, dict]) -> None:
 
 _CRON_RE = re.compile(
     r"^(\*|[0-5]?\d|\*/\d+|\d+-\d+|\d+(,\d+)*)\s+"  # minute
-    r"(\*|\d{1,2}|\*/\d+|\d+-\d+|\d+(,\d+)*)\s+"    # hour
-    r"(\*|\d{1,2}|\*/\d+|\d+-\d+|\d+(,\d+)*)\s+"    # day
-    r"(\*|\d{1,2}|\*/\d+|\d+-\d+|\d+(,\d+)*)\s+"    # month
-    r"(\*|\d|\*/\d+|\d+-\d+|\d+(,\d+)*)$"            # weekday
+    r"(\*|\d{1,2}|\*/\d+|\d+-\d+|\d+(,\d+)*)\s+"  # hour
+    r"(\*|\d{1,2}|\*/\d+|\d+-\d+|\d+(,\d+)*)\s+"  # day
+    r"(\*|\d{1,2}|\*/\d+|\d+-\d+|\d+(,\d+)*)\s+"  # month
+    r"(\*|\d|\*/\d+|\d+-\d+|\d+(,\d+)*)$"  # weekday
 )
 
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$|^[a-z0-9]$")
@@ -120,90 +121,6 @@ class DeleteResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Scheduler integration (optional — graceful if APScheduler not installed)
-# ---------------------------------------------------------------------------
-
-_scheduler = None
-
-
-def _get_scheduler():
-    global _scheduler
-    return _scheduler
-
-
-def init_scheduler(scheduler) -> None:
-    """Called from Gateway lifespan to register the APScheduler instance."""
-    global _scheduler
-    _scheduler = scheduler
-
-
-def _sync_to_scheduler(job: CronJob) -> None:
-    """Add or replace a job in APScheduler if available."""
-    sched = _get_scheduler()
-    if sched is None:
-        return
-    try:
-        from apscheduler.triggers.cron import CronTrigger
-
-        fields = job.cron.split()
-        trigger = CronTrigger(
-            minute=fields[0],
-            hour=fields[1],
-            day=fields[2],
-            month=fields[3],
-            day_of_week=fields[4],
-        )
-
-        async def _run_job(job_name: str, prompt: str) -> None:
-            try:
-                from src.client import DeerFlowClient
-
-                client = DeerFlowClient()
-                thread_id = f"cron-{job_name}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-                await client.stream(prompt, thread_id=thread_id)
-                logger.info("Cron job '%s' completed.", job_name)
-                _mark_run(job_name, "success")
-            except Exception:
-                logger.exception("Cron job '%s' failed.", job_name)
-                _mark_run(job_name, "failed")
-
-        import asyncio
-
-        def _sync_wrapper(job_name: str, prompt: str) -> None:
-            asyncio.create_task(_run_job(job_name, prompt))
-
-        sched.add_job(
-            _sync_wrapper,
-            trigger=trigger,
-            id=job.name,
-            args=[job.name, job.prompt],
-            replace_existing=True,
-        )
-        if not job.enabled:
-            sched.pause_job(job.name)
-    except Exception:
-        logger.warning("Failed to sync job '%s' to scheduler.", job.name, exc_info=True)
-
-
-def _remove_from_scheduler(job_name: str) -> None:
-    sched = _get_scheduler()
-    if sched is None:
-        return
-    try:
-        sched.remove_job(job_name)
-    except Exception:
-        pass
-
-
-def _mark_run(job_name: str, status: str) -> None:
-    jobs = _load_jobs()
-    if job_name in jobs:
-        jobs[job_name]["last_run_at"] = datetime.now(timezone.utc).isoformat()
-        jobs[job_name]["last_run_status"] = status
-        _save_jobs(jobs)
-
-
-# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -224,6 +141,11 @@ async def get_cron_job(job_name: str) -> CronJobResponse:
 
 @router.post("", response_model=CronJobResponse, summary="Create or update a cron job")
 async def upsert_cron_job(request: UpsertCronJobRequest) -> CronJobResponse:
+    """Persist job metadata to cron-jobs.json.
+
+    Note: this endpoint only updates the config file. The caller (cron-scheduler
+    skill) is responsible for also updating the system crontab.
+    """
     jobs = _load_jobs()
     now = datetime.now(timezone.utc).isoformat()
     job = request.job
@@ -242,26 +164,34 @@ async def upsert_cron_job(request: UpsertCronJobRequest) -> CronJobResponse:
 
     jobs[job.name] = data
     _save_jobs(jobs)
-    _sync_to_scheduler(CronJob(**data))
 
-    logger.info("Cron job '%s' upserted (cron=%s).", job.name, job.cron)
+    logger.info("Cron job '%s' saved to config (cron=%s).", job.name, job.cron)
     return CronJobResponse(job=CronJob(**data))
 
 
 @router.delete("/{job_name}", response_model=DeleteResponse, summary="Delete a cron job")
 async def delete_cron_job(job_name: str) -> DeleteResponse:
+    """Remove job from cron-jobs.json.
+
+    Note: the caller (cron-scheduler skill) must also remove the entry from
+    the system crontab.
+    """
     jobs = _load_jobs()
     if job_name not in jobs:
         raise HTTPException(status_code=404, detail=f"Cron job '{job_name}' not found")
     del jobs[job_name]
     _save_jobs(jobs)
-    _remove_from_scheduler(job_name)
-    logger.info("Cron job '%s' deleted.", job_name)
+    logger.info("Cron job '%s' removed from config.", job_name)
     return DeleteResponse(success=True, message=f"Cron job '{job_name}' deleted")
 
 
 @router.patch("/{job_name}/toggle", response_model=CronJobResponse, summary="Enable or disable a cron job")
 async def toggle_cron_job(job_name: str) -> CronJobResponse:
+    """Toggle enabled state in cron-jobs.json.
+
+    Note: the caller must also update the system crontab (comment/uncomment
+    the crontab entry) to reflect the new state.
+    """
     jobs = _load_jobs()
     if job_name not in jobs:
         raise HTTPException(status_code=404, detail=f"Cron job '{job_name}' not found")
@@ -269,5 +199,5 @@ async def toggle_cron_job(job_name: str) -> CronJobResponse:
     jobs[job_name]["updated_at"] = datetime.now(timezone.utc).isoformat()
     _save_jobs(jobs)
     job = CronJob(**jobs[job_name])
-    _sync_to_scheduler(job)
+    logger.info("Cron job '%s' toggled to enabled=%s.", job_name, job.enabled)
     return CronJobResponse(job=job)
