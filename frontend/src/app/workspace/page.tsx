@@ -1,20 +1,18 @@
-import fs from "fs";
-import path from "path";
+"use client";
 
-import { redirect } from "next/navigation";
+import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
+import { ArtifactsProvider } from "@/components/workspace/artifacts";
+import { ChatPageContent } from "@/components/workspace/chats";
+import { SubtasksProvider } from "@/core/tasks/context";
 
-import { env } from "@/env";
-
-export default function WorkspacePage() {
-  if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true") {
-    const firstThread = fs
-      .readdirSync(path.resolve(process.cwd(), "public/demo/threads"), {
-        withFileTypes: true,
-      })
-      .find((thread) => thread.isDirectory() && !thread.name.startsWith("."));
-    if (firstThread) {
-      return redirect(`/workspace/chats/${firstThread.name}`);
-    }
-  }
-  return redirect("/workspace/chats/new");
+export default function WorkspaceHomePage() {
+  return (
+    <SubtasksProvider>
+      <ArtifactsProvider>
+        <PromptInputProvider>
+          <ChatPageContent threadId={null} />
+        </PromptInputProvider>
+      </ArtifactsProvider>
+    </SubtasksProvider>
+  );
 }

@@ -1,25 +1,72 @@
-import { Footer } from "@/components/landing/footer";
-import { Header } from "@/components/landing/header";
-import { Hero } from "@/components/landing/hero";
-import { CaseStudySection } from "@/components/landing/sections/case-study-section";
-import { CommunitySection } from "@/components/landing/sections/community-section";
-import { SandboxSection } from "@/components/landing/sections/sandbox-section";
-import { SkillsSection } from "@/components/landing/sections/skills-section";
-import { WhatsNewSection } from "@/components/landing/sections/whats-new-section";
+"use client";
 
-export default function LandingPage() {
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Settings2Icon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Toaster } from "sonner";
+
+import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
+import { ArtifactsProvider } from "@/components/workspace/artifacts";
+import { ChatPageContent } from "@/components/workspace/chats";
+import { SettingsDialog } from "@/components/workspace/settings";
+import { Button } from "@/components/ui/button";
+import { SubtasksProvider } from "@/core/tasks/context";
+
+const queryClient = new QueryClient();
+
+function LandingPage() {
+  const router = useRouter();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a]">
-      <Header />
-      <main className="flex w-full flex-col">
-        <Hero />
-        <CaseStudySection />
-        <SkillsSection />
-        <SandboxSection />
-        <WhatsNewSection />
-        <CommunitySection />
-      </main>
-      <Footer />
+    <div className="relative flex h-screen w-full flex-col overflow-hidden">
+      {/* Top bar */}
+      <header className="absolute top-0 right-0 left-0 z-40 flex h-12 items-center justify-between px-4">
+        {/* Brand */}
+        <div
+          className="cursor-pointer font-serif text-lg font-semibold text-foreground"
+          onClick={() => router.push("/")}
+        >
+          FlowEngine
+        </div>
+
+        {/* Settings button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <Settings2Icon className="size-4" />
+        </Button>
+      </header>
+
+      {/* Chat input — full screen, centered via ChatPageContent new-thread mode */}
+      <SubtasksProvider>
+        <ArtifactsProvider>
+          <PromptInputProvider>
+            <ChatPageContent threadId={null} />
+          </PromptInputProvider>
+        </ArtifactsProvider>
+      </SubtasksProvider>
+
+      {/* Settings dialog */}
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        defaultSection="appearance"
+      />
+
+      <Toaster position="top-center" />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <LandingPage />
+    </QueryClientProvider>
   );
 }

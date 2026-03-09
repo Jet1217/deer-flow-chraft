@@ -1,6 +1,6 @@
 "use client";
 
-import { BotIcon, MessageSquareIcon, Trash2Icon } from "lucide-react";
+import { BotIcon, MessageSquareIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,9 +36,14 @@ export function AgentCard({ agent }: AgentCardProps) {
   const router = useRouter();
   const deleteAgent = useDeleteAgent();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const isBuiltin = agent.category === "builtin";
 
   function handleChat() {
     router.push(`/workspace/agents/${agent.name}/chats/new`);
+  }
+
+  function handleEdit() {
+    router.push(`/workspace/agents/${agent.name}/edit`);
   }
 
   async function handleDelete() {
@@ -96,17 +101,28 @@ export function AgentCard({ agent }: AgentCardProps) {
             <MessageSquareIcon className="mr-1.5 h-3.5 w-3.5" />
             {t.agents.chat}
           </Button>
-          <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive hover:text-destructive h-8 w-8 shrink-0"
-              onClick={() => setDeleteOpen(true)}
-              title={t.agents.delete}
-            >
-              <Trash2Icon className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          {!isBuiltin && (
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0"
+                onClick={handleEdit}
+                title={t.agents.edit}
+              >
+                <PencilIcon className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-destructive hover:text-destructive h-8 w-8 shrink-0"
+                onClick={() => setDeleteOpen(true)}
+                title={t.agents.delete}
+              >
+                <Trash2Icon className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </CardFooter>
       </Card>
 

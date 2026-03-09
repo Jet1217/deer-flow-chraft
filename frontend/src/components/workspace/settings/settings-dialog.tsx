@@ -2,6 +2,8 @@
 
 import {
   BellIcon,
+  BotIcon,
+  CalendarClockIcon,
   InfoIcon,
   BrainIcon,
   PaletteIcon,
@@ -18,7 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AboutSettingsPage } from "@/components/workspace/settings/about-settings-page";
+import { AgentSettingsPage } from "@/components/workspace/settings/agent-settings-page";
 import { AppearanceSettingsPage } from "@/components/workspace/settings/appearance-settings-page";
+import { CronSettingsPage } from "@/components/workspace/settings/cron-settings-page";
 import { MemorySettingsPage } from "@/components/workspace/settings/memory-settings-page";
 import { NotificationSettingsPage } from "@/components/workspace/settings/notification-settings-page";
 import { SkillSettingsPage } from "@/components/workspace/settings/skill-settings-page";
@@ -32,6 +36,8 @@ type SettingsSection =
   | "tools"
   | "skills"
   | "notification"
+  | "agents"
+  | "cron"
   | "about";
 
 type SettingsDialogProps = React.ComponentProps<typeof Dialog> & {
@@ -71,6 +77,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
       },
       { id: "tools", label: t.settings.sections.tools, icon: WrenchIcon },
       { id: "skills", label: t.settings.sections.skills, icon: SparklesIcon },
+      { id: "agents", label: t.settings.sections.agents, icon: BotIcon },
+      { id: "cron", label: t.settings.sections.cron, icon: CalendarClockIcon },
       { id: "about", label: t.settings.sections.about, icon: InfoIcon },
     ],
     [
@@ -78,6 +86,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
       t.settings.sections.memory,
       t.settings.sections.tools,
       t.settings.sections.skills,
+      t.settings.sections.agents,
+      t.settings.sections.cron,
       t.settings.sections.notification,
       t.settings.sections.about,
     ],
@@ -133,6 +143,12 @@ export function SettingsDialog(props: SettingsDialogProps) {
                 />
               )}
               {activeSection === "notification" && <NotificationSettingsPage />}
+              {activeSection === "agents" && (
+                <AgentSettingsPage
+                  onClose={() => props.onOpenChange?.(false)}
+                />
+              )}
+              {activeSection === "cron" && <CronSettingsPage />}
               {activeSection === "about" && <AboutSettingsPage />}
             </div>
           </ScrollArea>

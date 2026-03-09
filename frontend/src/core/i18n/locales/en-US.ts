@@ -33,6 +33,7 @@ export const enUS: Translations = {
     artifacts: "Artifacts",
     public: "Public",
     custom: "Custom",
+    builtin: "Builtin",
     notAvailableInDemoMode: "Not available in demo mode",
     loading: "Loading...",
     version: "Version",
@@ -41,19 +42,20 @@ export const enUS: Translations = {
     preview: "Preview",
     cancel: "Cancel",
     save: "Save",
+    saving: "Saving...",
+    deleting: "Deleting...",
     install: "Install",
     create: "Create",
   },
 
   // Welcome
   welcome: {
-    greeting: "Hello, again!",
-    description:
-      "Welcome to 🦌 DeerFlow, an open source super agent. With built-in and custom skills, DeerFlow helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
+    greeting: "What can I help with?",
+    description: "Search the web · Analyze data · Create anything",
 
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
-      "Create your own skill to release the power of DeerFlow. With customized skills,\nDeerFlow can help you search on the web, analyze data, and generate\n artifacts like slides, web pages and do almost anything.",
+      "Create your own skill to release the power of FlowEngine. With customized skills,\nFlowEngine can help you search on the web, analyze data, and generate\n artifacts like slides, web pages and do almost anything.",
   },
 
   // Clipboard
@@ -194,6 +196,11 @@ export const enUS: Translations = {
     agentCreated: "Agent created!",
     startChatting: "Start chatting",
     backToGallery: "Back to Gallery",
+    edit: "Edit",
+    editPageTitle: "Edit Agent",
+    editPageSubtitle:
+      "Describe what you'd like to change — I'll update the agent through conversation.",
+    agentUpdated: "Agent updated!",
   },
 
   // Breadcrumb
@@ -204,13 +211,13 @@ export const enUS: Translations = {
 
   // Workspace
   workspace: {
-    officialWebsite: "DeerFlow's official website",
-    githubTooltip: "DeerFlow on Github",
+    officialWebsite: "FlowEngine's official website",
+    githubTooltip: "FlowEngine on Github",
     settingsAndMore: "Settings and more",
-    visitGithub: "DeerFlow on GitHub",
+    visitGithub: "FlowEngine on GitHub",
     reportIssue: "Report a issue",
     contactUs: "Contact us",
-    about: "About DeerFlow",
+    about: "About",
   },
 
   // Conversation
@@ -226,7 +233,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "DeerFlow",
+    appName: "FlowEngine",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",
@@ -252,7 +259,7 @@ export const enUS: Translations = {
     writeFile: "Write file",
     clickToViewContent: "Click to view file content",
     writeTodos: "Update to-do list",
-    skillInstallTooltip: "Install skill and make it available to DeerFlow",
+    skillInstallTooltip: "Install skill and make it available to FlowEngine",
   },
 
   // Subtasks
@@ -273,19 +280,21 @@ export const enUS: Translations = {
   // Settings
   settings: {
     title: "Settings",
-    description: "Adjust how DeerFlow looks and behaves for you.",
+    description: "Adjust how FlowEngine looks and behaves for you.",
     sections: {
       appearance: "Appearance",
       memory: "Memory",
       tools: "Tools",
       skills: "Skills",
       notification: "Notification",
+      agents: "Agents",
+      cron: "Scheduled Tasks",
       about: "About",
     },
     memory: {
       title: "Memory",
       description:
-        "DeerFlow automatically learns from your conversations in the background. These memories help DeerFlow understand you better and deliver a more personalized experience.",
+        "FlowEngine automatically learns from your conversations in the background. These memories help FlowEngine understand you better and deliver a more personalized experience.",
       empty: "No memory data to display.",
       rawJson: "Raw JSON",
       markdown: {
@@ -341,18 +350,18 @@ export const enUS: Translations = {
       createSkill: "Create skill",
       emptyTitle: "No agent skill yet",
       emptyDescription:
-        "Put your agent skill folders under the `/skills/custom` folder under the root folder of DeerFlow.",
+        "Put your agent skill folders under the `/skills/custom` folder under the root folder of FlowEngine.",
       emptyButton: "Create Your First Skill",
     },
     notification: {
       title: "Notification",
       description:
-        "DeerFlow only sends a completion notification when the window is not active. This is especially useful for long-running tasks so you can switch to other work and get notified when done.",
+        "FlowEngine only sends a completion notification when the window is not active. This is especially useful for long-running tasks so you can switch to other work and get notified when done.",
       requestPermission: "Request notification permission",
       deniedHint:
         "Notification permission was denied. You can enable it in your browser's site settings to receive completion alerts.",
       testButton: "Send test notification",
-      testTitle: "DeerFlow",
+      testTitle: "FlowEngine",
       testBody: "This is a test notification.",
       notSupported: "Your browser does not support notifications.",
       disableNotification: "Disable notification",
@@ -360,6 +369,52 @@ export const enUS: Translations = {
     acknowledge: {
       emptyTitle: "Acknowledgements",
       emptyDescription: "Credits and acknowledgements will show here.",
+    },
+  },
+
+  cron: {
+    title: "Scheduled Tasks",
+    description:
+      "Automate recurring tasks using cron expressions. FlowEngine will run the specified prompt on schedule.",
+    newJob: "New Task",
+    editJob: "Edit Task",
+    emptyTitle: "No scheduled tasks",
+    emptyDescription: "Create a scheduled task to automate recurring work.",
+    lastRun: "Last run",
+    status: {
+      active: "Active",
+      paused: "Paused",
+    },
+    fields: {
+      name: "Name",
+      cron: "Schedule (cron)",
+      cronHint: "5-field cron: minute hour day month weekday. E.g. 0 9 * * * = every day at 9am",
+      prompt: "Task prompt",
+      promptPlaceholder: "What should FlowEngine do when this runs?",
+      enabled: "Enabled",
+    },
+    actions: {
+      edit: "Edit",
+      delete: "Delete",
+      pause: "Pause",
+      resume: "Resume",
+    },
+    errors: {
+      nameRequired: "Name is required",
+      nameInvalid: "Name must be lowercase letters, digits, and hyphens",
+      cronRequired: "Cron expression is required",
+      cronInvalid: "Must be a valid 5-field cron expression",
+      promptRequired: "Prompt is required",
+    },
+    toast: {
+      created: (name: string) => `Scheduled task "${name}" created`,
+      updated: (name: string) => `Scheduled task "${name}" updated`,
+      deleted: (name: string) => `Scheduled task "${name}" deleted`,
+    },
+    deleteConfirm: {
+      title: "Delete scheduled task",
+      message: (name: string) =>
+        `Are you sure you want to delete "${name}"? This cannot be undone.`,
     },
   },
 };

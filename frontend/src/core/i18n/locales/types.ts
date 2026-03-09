@@ -22,6 +22,7 @@ export interface Translations {
     artifacts: string;
     public: string;
     custom: string;
+    builtin: string;
     notAvailableInDemoMode: string;
     loading: string;
     version: string;
@@ -30,6 +31,8 @@ export interface Translations {
     preview: string;
     cancel: string;
     save: string;
+    saving: string;
+    deleting: string;
     install: string;
     create: string;
   };
@@ -132,6 +135,10 @@ export interface Translations {
     agentCreated: string;
     startChatting: string;
     backToGallery: string;
+    edit: string;
+    editPageTitle: string;
+    editPageSubtitle: string;
+    agentUpdated: string;
   };
 
   // Breadcrumb
@@ -217,6 +224,8 @@ export interface Translations {
       tools: string;
       skills: string;
       notification: string;
+      agents: string;
+      cron: string;
       about: string;
     };
     memory: {
@@ -291,6 +300,50 @@ export interface Translations {
     acknowledge: {
       emptyTitle: string;
       emptyDescription: string;
+    };
+  };
+
+  cron: {
+    title: string;
+    description: string;
+    newJob: string;
+    editJob: string;
+    emptyTitle: string;
+    emptyDescription: string;
+    lastRun: string;
+    status: {
+      active: string;
+      paused: string;
+    };
+    fields: {
+      name: string;
+      cron: string;
+      cronHint: string;
+      prompt: string;
+      promptPlaceholder: string;
+      enabled: string;
+    };
+    actions: {
+      edit: string;
+      delete: string;
+      pause: string;
+      resume: string;
+    };
+    errors: {
+      nameRequired: string;
+      nameInvalid: string;
+      cronRequired: string;
+      cronInvalid: string;
+      promptRequired: string;
+    };
+    toast: {
+      created: (name: string) => string;
+      updated: (name: string) => string;
+      deleted: (name: string) => string;
+    };
+    deleteConfirm: {
+      title: string;
+      message: (name: string) => string;
     };
   };
 }

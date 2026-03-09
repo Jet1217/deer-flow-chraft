@@ -33,6 +33,7 @@ export const zhCN: Translations = {
     artifacts: "文件",
     public: "公共",
     custom: "自定义",
+    builtin: "内置",
     notAvailableInDemoMode: "在演示模式下不可用",
     loading: "加载中...",
     version: "版本",
@@ -41,19 +42,20 @@ export const zhCN: Translations = {
     preview: "预览",
     cancel: "取消",
     save: "保存",
+    saving: "保存中...",
+    deleting: "删除中...",
     install: "安装",
     create: "创建",
   },
 
   // Welcome
   welcome: {
-    greeting: "你好，欢迎回来！",
-    description:
-      "欢迎使用 🦌 DeerFlow，一个完全开源的超级智能体。通过内置和自定义的 Skills，\nDeerFlow 可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等，几乎可以做任何事情。",
+    greeting: "有什么可以帮你？",
+    description: "搜索网络 · 分析数据 · 创造一切",
 
-    createYourOwnSkill: "创建你自己的 Agent SKill",
+    createYourOwnSkill: "创建你自己的 Agent Skill",
     createYourOwnSkillDescription:
-      "创建你的 Agent Skill 来释放 DeerFlow 的潜力。通过自定义技能，DeerFlow\n可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n网页等作品，几乎可以做任何事情。",
+      "创建你的 Agent Skill 来释放 FlowEngine 的潜力。通过自定义技能，FlowEngine\n可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n网页等作品，几乎可以做任何事情。",
   },
 
   // Clipboard
@@ -183,6 +185,10 @@ export const zhCN: Translations = {
     agentCreated: "智能体已创建！",
     startChatting: "开始对话",
     backToGallery: "返回 Gallery",
+    edit: "编辑",
+    editPageTitle: "编辑智能体",
+    editPageSubtitle: "描述你想要修改的内容，我来通过对话帮你更新智能体。",
+    agentUpdated: "智能体已更新！",
   },
 
   // Breadcrumb
@@ -193,13 +199,13 @@ export const zhCN: Translations = {
 
   // Workspace
   workspace: {
-    officialWebsite: "访问 DeerFlow 官方网站",
-    githubTooltip: "访问 DeerFlow 的 Github 仓库",
+    officialWebsite: "访问 FlowEngine 官方网站",
+    githubTooltip: "访问 FlowEngine 的 Github 仓库",
     settingsAndMore: "设置和更多",
-    visitGithub: "在 Github 上查看 DeerFlow",
+    visitGithub: "在 Github 上查看 FlowEngine",
     reportIssue: "报告问题",
     contactUs: "联系我们",
-    about: "关于 DeerFlow",
+    about: "关于 FlowEngine",
   },
 
   // Conversation
@@ -215,7 +221,7 @@ export const zhCN: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "DeerFlow",
+    appName: "FlowEngine",
     chats: "对话",
     newChat: "新对话",
     untitled: "未命名",
@@ -240,7 +246,7 @@ export const zhCN: Translations = {
     writeFile: "写入文件",
     clickToViewContent: "点击查看文件内容",
     writeTodos: "更新 To-do 列表",
-    skillInstallTooltip: "安装技能并使其可在 DeerFlow 中使用",
+    skillInstallTooltip: "安装技能并使其可在 FlowEngine 中使用",
   },
 
   uploads: {
@@ -260,19 +266,21 @@ export const zhCN: Translations = {
   // Settings
   settings: {
     title: "设置",
-    description: "根据你的偏好调整 DeerFlow 的界面和行为。",
+    description: "根据你的偏好调整 FlowEngine 的界面和行为。",
     sections: {
       appearance: "外观",
       memory: "记忆",
       tools: "工具",
       skills: "技能",
       notification: "通知",
+      agents: "智能体",
+      cron: "定时任务",
       about: "关于",
     },
     memory: {
       title: "记忆",
       description:
-        "DeerFlow 会在后台不断从你的对话中自动学习。这些记忆能帮助 DeerFlow 更好地理解你，并提供更个性化的体验。",
+        "FlowEngine 会在后台不断从你的对话中自动学习。这些记忆能帮助 FlowEngine 更好地理解你，并提供更个性化的体验。",
       empty: "暂无可展示的记忆数据。",
       rawJson: "原始 JSON",
       markdown: {
@@ -326,18 +334,18 @@ export const zhCN: Translations = {
       createSkill: "新建技能",
       emptyTitle: "还没有技能",
       emptyDescription:
-        "将你的 Agent Skill 文件夹放在 DeerFlow 根目录下的 `/skills/custom` 文件夹中。",
+        "将你的 Agent Skill 文件夹放在 FlowEngine 根目录下的 `/skills/custom` 文件夹中。",
       emptyButton: "创建你的第一个技能",
     },
     notification: {
       title: "通知",
       description:
-        "DeerFlow 只会在窗口不活跃时发送完成通知，特别适合长时间任务：你可以先去做别的事，完成后会收到提醒。",
+        "FlowEngine 只会在窗口不活跃时发送完成通知，特别适合长时间任务：你可以先去做别的事，完成后会收到提醒。",
       requestPermission: "请求通知权限",
       deniedHint:
         "通知权限已被拒绝。可在浏览器的网站设置中重新开启，以接收完成提醒。",
       testButton: "发送测试通知",
-      testTitle: "DeerFlow",
+      testTitle: "FlowEngine",
       testBody: "这是一条测试通知。",
       notSupported: "当前浏览器不支持通知功能。",
       disableNotification: "关闭通知",
@@ -345,6 +353,50 @@ export const zhCN: Translations = {
     acknowledge: {
       emptyTitle: "致谢",
       emptyDescription: "相关的致谢信息会展示在这里。",
+    },
+  },
+
+  cron: {
+    title: "定时任务",
+    description: "使用 cron 表达式设置定时任务，FlowEngine 将按计划自动执行指定的提示词。",
+    newJob: "新建任务",
+    editJob: "编辑任务",
+    emptyTitle: "暂无定时任务",
+    emptyDescription: "创建一个定时任务来自动化重复性工作。",
+    lastRun: "上次运行",
+    status: {
+      active: "运行中",
+      paused: "已暂停",
+    },
+    fields: {
+      name: "名称",
+      cron: "调度计划（cron）",
+      cronHint: "5 字段 cron：分 时 日 月 周。例如 0 9 * * * = 每天上午 9 点",
+      prompt: "任务提示词",
+      promptPlaceholder: "定时触发时，FlowEngine 应该做什么？",
+      enabled: "启用",
+    },
+    actions: {
+      edit: "编辑",
+      delete: "删除",
+      pause: "暂停",
+      resume: "恢复",
+    },
+    errors: {
+      nameRequired: "名称不能为空",
+      nameInvalid: "名称只能包含小写字母、数字和连字符",
+      cronRequired: "cron 表达式不能为空",
+      cronInvalid: "必须是有效的 5 字段 cron 表达式",
+      promptRequired: "提示词不能为空",
+    },
+    toast: {
+      created: (name: string) => `定时任务 "${name}" 已创建`,
+      updated: (name: string) => `定时任务 "${name}" 已更新`,
+      deleted: (name: string) => `定时任务 "${name}" 已删除`,
+    },
+    deleteConfirm: {
+      title: "删除定时任务",
+      message: (name: string) => `确定要删除 "${name}" 吗？此操作不可撤销。`,
     },
   },
 };

@@ -37,6 +37,7 @@ import {
   PromptInputTextarea,
   PromptInputTools,
   usePromptInputAttachments,
+  PromptInputProvider,
   usePromptInputController,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
@@ -98,21 +99,7 @@ function getResolvedMode(
   return supportsThinking ? "pro" : "flash";
 }
 
-export function InputBox({
-  className,
-  disabled,
-  autoFocus,
-  status = "ready",
-  context,
-  extraHeader,
-  isNewThread,
-  threadId,
-  initialValue,
-  onContextChange,
-  onSubmit,
-  onStop,
-  ...props
-}: Omit<ComponentProps<typeof PromptInput>, "onSubmit"> & {
+type InputBoxProps = Omit<ComponentProps<typeof PromptInput>, "onSubmit"> & {
   assistantId?: string | null;
   status?: ChatStatus;
   disabled?: boolean;
@@ -138,7 +125,31 @@ export function InputBox({
   ) => void;
   onSubmit?: (message: PromptInputMessage) => void;
   onStop?: () => void;
-}) {
+};
+
+export function InputBox(props: InputBoxProps) {
+  return (
+    <PromptInputProvider>
+      <InputBoxInner {...props} />
+    </PromptInputProvider>
+  );
+}
+
+function InputBoxInner({
+  className,
+  disabled,
+  autoFocus,
+  status = "ready",
+  context,
+  extraHeader,
+  isNewThread,
+  threadId,
+  initialValue,
+  onContextChange,
+  onSubmit,
+  onStop,
+  ...props
+}: InputBoxProps) {
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);

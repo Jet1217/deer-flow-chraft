@@ -4,6 +4,7 @@ export interface Agent {
   model: string | null;
   tool_groups: string[] | null;
   soul?: string | null;
+  category?: "builtin" | "custom";
 }
 
 export interface CreateAgentRequest {

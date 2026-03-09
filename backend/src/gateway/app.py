@@ -10,6 +10,7 @@ from src.gateway.routers import (
     agents,
     artifacts,
     channels,
+    cron,
     mcp,
     memory,
     models,
@@ -140,6 +141,10 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
                 "description": "Manage IM channel integrations (Feishu, Slack, Telegram)",
             },
             {
+                "name": "cron",
+                "description": "Create and manage scheduled cron jobs",
+            },
+            {
                 "name": "health",
                 "description": "Health check and system status endpoints",
             },
@@ -175,6 +180,9 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
 
     # Channels API is mounted at /api/channels
     app.include_router(channels.router)
+
+    # Cron jobs API is mounted at /api/cron-jobs
+    app.include_router(cron.router)
 
     @app.get("/health", tags=["health"])
     async def health_check() -> dict:

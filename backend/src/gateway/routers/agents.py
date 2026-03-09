@@ -25,6 +25,7 @@ class AgentResponse(BaseModel):
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     soul: str | None = Field(default=None, description="SOUL.md content (included on GET /{name})")
+    category: str = Field(default="custom", description="'builtin' or 'custom'")
 
 
 class AgentsListResponse(BaseModel):
@@ -73,7 +74,7 @@ def _normalize_agent_name(name: str) -> str:
     return name.lower()
 
 
-def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False) -> AgentResponse:
+def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False, category: str = "custom") -> AgentResponse:
     """Convert AgentConfig to AgentResponse."""
     soul: str | None = None
     if include_soul:
@@ -85,7 +86,25 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         soul=soul,
+        category=category,
     )
+
+
+def _builtin_agents() -> list[AgentResponse]:
+    """Return builtin subagents as AgentResponse entries."""
+    from src.subagents.builtins import BUILTIN_SUBAGENTS
+
+    return [
+        AgentResponse(
+            name=cfg.name,
+            description=cfg.description.strip().splitlines()[0] if cfg.description else "",
+            model=cfg.model if cfg.model != "inherit" else None,
+            tool_groups=None,
+            soul=None,
+            category="builtin",
+        )
+        for cfg in BUILTIN_SUBAGENTS.values()
+    ]
 
 
 @router.get(
@@ -95,14 +114,15 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
     description="List all custom agents available in the agents directory.",
 )
 async def list_agents() -> AgentsListResponse:
-    """List all custom agents.
+    """List all agents (builtin + custom).
 
     Returns:
-        List of all custom agents with their metadata (without soul content).
+        List of all agents with their metadata (without soul content).
     """
     try:
-        agents = list_custom_agents()
-        return AgentsListResponse(agents=[_agent_config_to_response(a) for a in agents])
+        custom = list_custom_agents()
+        all_agents = _builtin_agents() + [_agent_config_to_response(a) for a in custom]
+        return AgentsListResponse(agents=all_agents)
     except Exception as e:
         logger.error(f"Failed to list agents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")

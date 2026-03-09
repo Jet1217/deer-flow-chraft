@@ -68,9 +68,46 @@ class Paths:
         """Root directory for all custom agents: `{base_dir}/agents/`."""
         return self.base_dir / "agents"
 
+    @property
+    def users_dir(self) -> Path:
+        """Root directory for per-user data: `{base_dir}/users/`."""
+        return self.base_dir / "users"
+
+    def user_agents_dir(self, username: str) -> Path:
+        """Per-user agents directory: `{base_dir}/users/{username}/agents/`."""
+        return self.users_dir / username / "agents"
+
+    def all_agents_dirs(self) -> list[Path]:
+        """Return all directories that may contain custom agents.
+
+        Includes the global agents/ dir and every users/{username}/agents/ dir.
+        """
+        dirs: list[Path] = [self.agents_dir]
+        if self.users_dir.exists():
+            for user_dir in sorted(self.users_dir.iterdir()):
+                if user_dir.is_dir():
+                    user_agents = user_dir / "agents"
+                    if user_agents.exists():
+                        dirs.append(user_agents)
+        return dirs
+
     def agent_dir(self, name: str) -> Path:
-        """Directory for a specific agent: `{base_dir}/agents/{name}/`."""
+        """Directory for a specific agent: `{base_dir}/agents/{name}/`.
+
+        For write operations (create/delete) we always use the global agents/ dir.
+        """
         return self.agents_dir / name.lower()
+
+    def find_agent_dir(self, name: str) -> Path | None:
+        """Search all agent directories for an agent by name.
+
+        Returns the first matching directory, or None if not found.
+        """
+        for base in self.all_agents_dirs():
+            candidate = base / name.lower()
+            if (candidate / "config.yaml").exists():
+                return candidate
+        return None
 
     def agent_memory_file(self, name: str) -> Path:
         """Per-agent memory file: `{base_dir}/agents/{name}/memory.json`."""

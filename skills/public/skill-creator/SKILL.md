@@ -442,6 +442,34 @@ In Claude.ai, the core workflow is the same (draft → test → review → impro
 
 ---
 
+## FlowEngine-Specific Instructions
+
+If you're running inside FlowEngine (DeerFlow), the skills directory is mounted at `/mnt/skills` in the sandbox. The directory structure is:
+
+```
+/mnt/skills/
+├── public/    — built-in skills (read-only, do not modify)
+└── custom/    — user-created skills (writable, always save new skills here)
+```
+
+**Always save new skills to `/mnt/skills/custom/<skill-name>/`.**
+
+When initializing a new skill, use:
+```bash
+python /mnt/skills/public/skill-creator/scripts/init_skill.py <skill-name> --path /mnt/skills/custom
+```
+
+When packaging a skill:
+```bash
+python /mnt/skills/public/skill-creator/scripts/package_skill.py /mnt/skills/custom/<skill-name>
+```
+
+The workspace for evals and iteration output should go in `/mnt/user-data/workspace/<skill-name>-workspace/`.
+
+After creating or modifying a skill in `/mnt/skills/custom/`, it will be automatically discovered by FlowEngine on the next request — no restart needed.
+
+---
+
 ## Cowork-Specific Instructions
 
 If you're in Cowork, the main things to know are:

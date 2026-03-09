@@ -1,13 +1,11 @@
 "use client";
 
 import {
-  BugIcon,
   ChevronsUpDown,
-  GlobeIcon,
   InfoIcon,
   MailIcon,
+  MoreHorizontalIcon,
   Settings2Icon,
-  SettingsIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -27,33 +25,12 @@ import {
 } from "@/components/ui/sidebar";
 import { useI18n } from "@/core/i18n/hooks";
 
-import { GithubIcon } from "./github-icon";
 import { SettingsDialog } from "./settings";
-
-function NavMenuButtonContent({
-  isSidebarOpen,
-  t,
-}: {
-  isSidebarOpen: boolean;
-  t: ReturnType<typeof useI18n>["t"];
-}) {
-  return isSidebarOpen ? (
-    <div className="text-muted-foreground flex w-full items-center gap-2 text-left text-sm">
-      <SettingsIcon className="size-4" />
-      <span>{t.workspace.settingsAndMore}</span>
-      <ChevronsUpDown className="text-muted-foreground ml-auto size-4" />
-    </div>
-  ) : (
-    <div className="flex size-full items-center justify-center">
-      <SettingsIcon className="text-muted-foreground size-4" />
-    </div>
-  );
-}
 
 export function WorkspaceNavMenu() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsDefaultSection, setSettingsDefaultSection] = useState<
-    "appearance" | "memory" | "tools" | "skills" | "notification" | "about"
+    "appearance" | "memory" | "tools" | "skills" | "notification" | "agents" | "cron" | "about"
   >("appearance");
   const [mounted, setMounted] = useState(false);
   const { open: isSidebarOpen } = useSidebar();
@@ -63,6 +40,13 @@ export function WorkspaceNavMenu() {
     setMounted(true);
   }, []);
 
+  function openSettings(
+    section: "appearance" | "memory" | "tools" | "skills" | "notification" | "agents" | "cron" | "about" = "appearance",
+  ) {
+    setSettingsDefaultSection(section);
+    setSettingsOpen(true);
+  }
+
   return (
     <>
       <SettingsDialog
@@ -71,6 +55,36 @@ export function WorkspaceNavMenu() {
         defaultSection={settingsDefaultSection}
       />
       <SidebarMenu className="w-full">
+        {/* Direct Settings button */}
+        <SidebarMenuItem>
+          {mounted ? (
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              onClick={() => openSettings("appearance")}
+            >
+              {isSidebarOpen ? (
+                <div className="text-muted-foreground flex w-full items-center gap-2 text-left text-sm">
+                  <Settings2Icon className="size-4" />
+                  <span>{t.common.settings}</span>
+                </div>
+              ) : (
+                <div className="flex size-full items-center justify-center">
+                  <Settings2Icon className="text-muted-foreground size-4" />
+                </div>
+              )}
+            </SidebarMenuButton>
+          ) : (
+            <SidebarMenuButton size="lg" className="pointer-events-none">
+              <div className="text-muted-foreground flex w-full items-center gap-2 text-left text-sm">
+                <Settings2Icon className="size-4" />
+                {isSidebarOpen && <span>{t.common.settings}</span>}
+              </div>
+            </SidebarMenuButton>
+          )}
+        </SidebarMenuItem>
+
+        {/* About + More dropdown */}
         <SidebarMenuItem>
           {mounted ? (
             <DropdownMenu>
@@ -79,7 +93,17 @@ export function WorkspaceNavMenu() {
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
+                  {isSidebarOpen ? (
+                    <div className="text-muted-foreground flex w-full items-center gap-2 text-left text-sm">
+                      <InfoIcon className="size-4" />
+                      <span>{t.workspace.about}</span>
+                      <ChevronsUpDown className="text-muted-foreground ml-auto size-4" />
+                    </div>
+                  ) : (
+                    <div className="flex size-full items-center justify-center">
+                      <MoreHorizontalIcon className="text-muted-foreground size-4" />
+                    </div>
+                  )}
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -88,69 +112,26 @@ export function WorkspaceNavMenu() {
                 sideOffset={4}
               >
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSettingsDefaultSection("appearance");
-                      setSettingsOpen(true);
-                    }}
-                  >
-                    <Settings2Icon />
-                    {t.common.settings}
+                  <DropdownMenuItem onClick={() => openSettings("about")}>
+                    <InfoIcon />
+                    {t.workspace.about}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <a
-                    href="https://deerflow.tech/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <DropdownMenuItem>
-                      <GlobeIcon />
-                      {t.workspace.officialWebsite}
-                    </DropdownMenuItem>
-                  </a>
-                  <a
-                    href="https://github.com/bytedance/deer-flow"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <DropdownMenuItem>
-                      <GithubIcon />
-                      {t.workspace.visitGithub}
-                    </DropdownMenuItem>
-                  </a>
-                  <DropdownMenuSeparator />
-                  <a
-                    href="https://github.com/bytedance/deer-flow/issues"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <DropdownMenuItem>
-                      <BugIcon />
-                      {t.workspace.reportIssue}
-                    </DropdownMenuItem>
-                  </a>
-                  <a href="mailto:support@deerflow.tech">
+                  <a href="mailto:support@flowengine.ai">
                     <DropdownMenuItem>
                       <MailIcon />
                       {t.workspace.contactUs}
                     </DropdownMenuItem>
                   </a>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSettingsDefaultSection("about");
-                    setSettingsOpen(true);
-                  }}
-                >
-                  <InfoIcon />
-                  {t.workspace.about}
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <SidebarMenuButton size="lg" className="pointer-events-none">
-              <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
+              <div className="text-muted-foreground flex w-full items-center gap-2 text-left text-sm">
+                <InfoIcon className="size-4" />
+                {isSidebarOpen && <span>{t.workspace.about}</span>}
+              </div>
             </SidebarMenuButton>
           )}
         </SidebarMenuItem>

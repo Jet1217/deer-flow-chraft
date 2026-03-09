@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { useSidebar } from "@/components/ui/sidebar";
+import { SidebarContext } from "@/components/ui/sidebar";
 import { env } from "@/env";
 
 export interface ArtifactsContextType {
@@ -39,13 +39,14 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
   const [autoOpen, setAutoOpen] = useState(true);
-  const { setOpen: setSidebarOpen } = useSidebar();
+  const sidebarCtx = useContext(SidebarContext);
+  const setSidebarOpen = sidebarCtx?.setOpen;
 
   const select = useCallback(
     (artifact: string, autoSelect = false) => {
       setSelectedArtifact(artifact);
       if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true") {
-        setSidebarOpen(false);
+        setSidebarOpen?.(false);
       }
       if (!autoSelect) {
         setAutoSelect(false);

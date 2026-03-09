@@ -90,31 +90,46 @@ def load_agent_soul(agent_name: str | None) -> str | None:
 
 
 def list_custom_agents() -> list[AgentConfig]:
-    """Scan the agents directory and return all valid custom agents.
+    """Scan all agent directories and return all valid custom agents.
+
+    Scans the global agents/ directory as well as every users/{username}/agents/
+    directory so that agents created by the agent skill are included.
 
     Returns:
-        List of AgentConfig for each valid agent directory found.
+        List of AgentConfig for each valid agent directory found (deduplicated by name).
     """
-    agents_dir = get_paths().agents_dir
-
-    if not agents_dir.exists():
-        return []
-
+    seen: set[str] = set()
     agents: list[AgentConfig] = []
 
-    for entry in sorted(agents_dir.iterdir()):
-        if not entry.is_dir():
+    for agents_dir in get_paths().all_agents_dirs():
+        if not agents_dir.exists():
             continue
 
-        config_file = entry / "config.yaml"
-        if not config_file.exists():
-            logger.debug(f"Skipping {entry.name}: no config.yaml")
-            continue
+        for entry in sorted(agents_dir.iterdir()):
+            if not entry.is_dir():
+                continue
 
-        try:
-            agent_cfg = load_agent_config(entry.name)
-            agents.append(agent_cfg)
-        except Exception as e:
-            logger.warning(f"Skipping agent '{entry.name}': {e}")
+            config_file = entry / "config.yaml"
+            if not config_file.exists():
+                logger.debug(f"Skipping {entry.name}: no config.yaml")
+                continue
+
+            if entry.name in seen:
+                logger.debug(f"Skipping duplicate agent '{entry.name}'")
+                continue
+
+            try:
+                import yaml
+                with open(config_file, encoding="utf-8") as f:
+                    data: dict = yaml.safe_load(f) or {}
+                if "name" not in data:
+                    data["name"] = entry.name
+                known_fields = set(AgentConfig.model_fields.keys())
+                data = {k: v for k, v in data.items() if k in known_fields}
+                agent_cfg = AgentConfig(**data)
+                agents.append(agent_cfg)
+                seen.add(entry.name)
+            except Exception as e:
+                logger.warning(f"Skipping agent '{entry.name}': {e}")
 
     return agents

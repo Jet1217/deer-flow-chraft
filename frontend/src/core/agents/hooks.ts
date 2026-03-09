@@ -13,8 +13,10 @@ export function useAgents() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["agents"],
     queryFn: () => listAgents(),
+    retry: false,
+    refetchOnWindowFocus: false,
   });
-  return { agents: data ?? [], isLoading, error };
+  return { agents: data ?? [], isLoading: isLoading && !error, error };
 }
 
 export function useAgent(name: string | null | undefined) {
@@ -22,6 +24,8 @@ export function useAgent(name: string | null | undefined) {
     queryKey: ["agents", name],
     queryFn: () => getAgent(name!),
     enabled: !!name,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
   return { agent: data ?? null, isLoading, error };
 }

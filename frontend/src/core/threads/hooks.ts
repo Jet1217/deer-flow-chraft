@@ -17,6 +17,21 @@ import { uploadFiles } from "../uploads";
 
 import type { AgentThread, AgentThreadState } from "./types";
 
+/**
+ * Returns true when the thrown value is a LangGraph UserInterrupt — a normal
+ * graph pause (e.g. ask_clarification), not a real error.
+ */
+function isUserInterrupt(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: string }).name ?? "";
+  const message = (error as { message?: string }).message ?? "";
+  return (
+    name === "UserInterrupt" ||
+    message.toLowerCase().includes("userinterrupt") ||
+    message.toLowerCase().includes("an internal error occurred")
+  );
+}
+
 export type ToolEndEvent = {
   name: string;
   data: unknown;
@@ -29,6 +44,7 @@ export type ThreadStreamOptions = {
   onStart?: (threadId: string) => void;
   onFinish?: (state: AgentThreadState) => void;
   onToolEnd?: (event: ToolEndEvent) => void;
+  onNotFound?: () => void;
 };
 
 export function useThreadStream({
@@ -38,6 +54,7 @@ export function useThreadStream({
   onStart,
   onFinish,
   onToolEnd,
+  onNotFound,
 }: ThreadStreamOptions) {
   const { t } = useI18n();
   // Track the thread ID that is currently streaming to handle thread changes during streaming
@@ -51,12 +68,13 @@ export function useThreadStream({
     onStart,
     onFinish,
     onToolEnd,
+    onNotFound,
   });
 
   // Keep listeners ref updated with latest callbacks
   useEffect(() => {
-    listeners.current = { onStart, onFinish, onToolEnd };
-  }, [onStart, onFinish, onToolEnd]);
+    listeners.current = { onStart, onFinish, onToolEnd, onNotFound };
+  }, [onStart, onFinish, onToolEnd, onNotFound]);
 
   useEffect(() => {
     const normalizedThreadId = threadId ?? null;
@@ -149,6 +167,12 @@ export function useThreadStream({
     onFinish(state) {
       listeners.current.onFinish?.(state.values);
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+    },
+    onError(error) {
+      const message = (error as { message?: string }).message ?? "";
+      if (message.includes("404") || message.toLowerCase().includes("not found")) {
+        listeners.current.onNotFound?.();
+      }
     },
   });
 
@@ -341,6 +365,9 @@ export function useThreadStream({
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
       } catch (error) {
         setOptimisticMessages([]);
+        // UserInterrupt is a normal LangGraph interrupt (e.g. ask_clarification).
+        // It is not an error — swallow it silently.
+        if (isUserInterrupt(error)) return;
         throw error;
       }
     },
